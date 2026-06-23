@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResearchMind AI — Deep Research, Instantly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cream:#F8F7F4;--stone:#E8E4DC;--navy:#1B2B4B;--navy-60:rgba(27,43,75,0.6);--navy-15:rgba(27,43,75,0.08);
+  --amber:#E8823A;--amber-l:#FDF0E6;--sage:#7BA694;--sage-l:#EEF4F2;--red:#D95F43;--red-l:#FDF0EE;
+  --serif:'DM Serif Display',Georgia,serif;--sans:'Inter',system-ui,sans-serif;
+  --radius:10px;--shadow:0 2px 12px rgba(27,43,75,0.08);--shadow-lg:0 8px 32px rgba(27,43,75,0.12);
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--cream);color:var(--navy);line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(248,247,244,0.93);backdrop-filter:blur(12px);border-bottom:1px solid var(--stone);padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:var(--serif);font-size:20px;color:var(--navy);text-decoration:none;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;background:var(--amber);border-radius:50%;display:inline-block}
+.nav-links{display:flex;align-items:center;gap:24px;list-style:none}
+.nav-links a{font-size:13px;font-weight:500;color:var(--navy-60);text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--navy)}
+.nav-cta{background:var(--navy)!important;color:#fff!important;padding:7px 16px;border-radius:6px}
+.nav-cta:hover{background:var(--amber)!important}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:100px 24px 60px;text-align:center;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(232,130,58,.07) 0%,transparent 70%),radial-gradient(ellipse 40% 40% at 85% 80%,rgba(123,166,148,.08) 0%,transparent 60%);pointer-events:none}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;background:var(--amber-l);border:1px solid rgba(232,130,58,.25);color:var(--amber);font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:28px}
+.badge-dot{width:6px;height:6px;background:var(--amber);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+h1{font-family:var(--serif);font-size:clamp(38px,6vw,72px);line-height:1.1;color:var(--navy);max-width:800px;margin-bottom:24px}
+h1 em{font-style:italic;color:var(--amber)}
+.hero-sub{font-size:17px;color:var(--navy-60);max-width:540px;margin-bottom:44px;line-height:1.7}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:64px}
+.btn-primary{background:var(--navy);color:#fff;border:none;cursor:pointer;padding:13px 28px;border-radius:8px;font-family:var(--sans);font-size:15px;font-weight:500;text-decoration:none;transition:background .2s,transform .15s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary:hover{background:#243d6b;transform:translateY(-1px)}
+.btn-secondary{background:transparent;color:var(--navy);border:1.5px solid var(--stone);cursor:pointer;padding:13px 28px;border-radius:8px;font-family:var(--sans);font-size:15px;font-weight:500;text-decoration:none;transition:border-color .2s,background .2s;display:inline-flex;align-items:center;gap:8px}
+.btn-secondary:hover{border-color:var(--navy-60);background:var(--navy-15)}
+.hero-stats{display:flex;gap:40px;flex-wrap:wrap;justify-content:center}
+.stat{display:flex;flex-direction:column;align-items:center;gap:2px}
+.stat-num{font-family:var(--serif);font-size:28px;color:var(--navy)}
+.stat-label{font-size:12px;color:var(--navy-60);font-weight:500;letter-spacing:.04em;text-transform:uppercase}
+.stat-div{width:1px;background:var(--stone);align-self:stretch}
+
+/* SECTIONS */
+.section{padding:96px 24px;max-width:1100px;margin:0 auto}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-bottom:14px}
+.sec-title{font-family:var(--serif);font-size:clamp(28px,4vw,44px);line-height:1.15;color:var(--navy);margin-bottom:20px;max-width:600px}
+.sec-sub{font-size:16px;color:var(--navy-60);max-width:520px;line-height:1.75;margin-bottom:56px}
+.divider{height:1px;background:var(--stone);max-width:1100px;margin:0 auto}
+
+/* FEATURES */
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.feature-card{background:#fff;border:1px solid var(--stone);border-radius:var(--radius);padding:28px;transition:box-shadow .2s,border-color .2s}
+.feature-card:hover{box-shadow:var(--shadow);border-color:rgba(27,43,75,.15)}
+.ficon{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:16px}
+.ic-a{background:var(--amber-l)}.ic-s{background:var(--sage-l)}.ic-n{background:var(--navy-15)}
+.ftitle{font-weight:600;font-size:15px;margin-bottom:8px;color:var(--navy)}
+.fdesc{font-size:14px;color:var(--navy-60);line-height:1.65}
+
+/* HOW IT WORKS */
+.how-section{padding:96px 24px;background:var(--navy);position:relative;overflow:hidden}
+.how-section::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(232,130,58,.15) 0%,transparent 70%);pointer-events:none}
+.how-inner{max-width:1100px;margin:0 auto}
+.how-title{font-family:var(--serif);font-size:clamp(28px,4vw,44px);color:#fff;margin-bottom:16px}
+.how-sub{font-size:16px;color:rgba(255,255,255,.5);max-width:480px;margin-bottom:64px;line-height:1.7}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0;position:relative}
+.steps::before{content:'';position:absolute;top:28px;left:40px;right:40px;height:1px;background:rgba(255,255,255,.08)}
+.step{padding:0 32px 0 0;position:relative;z-index:1}
+.step-num{width:56px;height:56px;border-radius:50%;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:20px;color:var(--amber);margin-bottom:24px}
+.step-title{font-weight:600;font-size:15px;color:#fff;margin-bottom:10px}
+.step-desc{font-size:13px;color:rgba(255,255,255,.45);line-height:1.7}
+.step-tag{display:inline-block;margin-top:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.35);font-size:11px;font-weight:600;letter-spacing:.04em;padding:3px 10px;border-radius:20px;font-family:monospace}
+
+/* TECH */
+.tech-section{padding:80px 24px;max-width:1100px;margin:0 auto}
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:48px}
+.tech-pill{background:#fff;border:1px solid var(--stone);border-radius:8px;padding:16px 20px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;color:var(--navy)}
+.td{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.da{background:var(--amber)}.ds{background:var(--sage)}.dn{background:var(--navy)}.dg{background:#999}
+
+/* RESEARCH INTERFACE */
+.research-section{padding:96px 24px;background:linear-gradient(to bottom,var(--stone) 0%,var(--cream) 100%)}
+.research-inner{max-width:860px;margin:0 auto}
+.interface-box{background:#fff;border:1px solid var(--stone);border-radius:14px;box-shadow:var(--shadow-lg);overflow:hidden}
+.query-area{padding:28px 28px 20px;border-bottom:1px solid var(--stone)}
+.qlabel{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--navy-60);margin-bottom:10px;display:block}
+.query-row{display:flex;gap:10px;align-items:flex-end}
+#queryInput{flex:1;font-family:var(--sans);font-size:15px;color:var(--navy);background:var(--cream);border:1.5px solid var(--stone);border-radius:8px;padding:12px 16px;resize:none;min-height:52px;max-height:140px;outline:none;transition:border-color .2s;line-height:1.5}
+#queryInput:focus{border-color:var(--navy)}
+#queryInput::placeholder{color:rgba(27,43,75,.35)}
+#runBtn{background:var(--amber);color:#fff;border:none;cursor:pointer;padding:0 22px;height:52px;border-radius:8px;font-family:var(--sans);font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;transition:background .2s,transform .15s;white-space:nowrap;flex-shrink:0}
+#runBtn:hover:not(:disabled){background:#d4722e;transform:translateY(-1px)}
+#runBtn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.sample-queries{padding:14px 28px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--stone);background:var(--cream)}
+.sample-q{font-size:12px;color:var(--navy-60);background:#fff;border:1px solid var(--stone);padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.sample-q:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-l)}
+.results-area{padding:28px;min-height:300px}
+
+/* EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;color:var(--navy-60)}
+.empty-icon{font-size:40px;margin-bottom:16px;opacity:.4}
+.empty-title{font-weight:600;font-size:15px;color:var(--navy);margin-bottom:8px}
+.empty-sub{font-size:13px;max-width:300px;line-height:1.6}
+
+/* TIMELINE */
+.timeline{display:none;flex-direction:column;margin-bottom:28px}
+.timeline.active{display:flex}
+.tstep{display:flex;gap:16px;align-items:flex-start;padding-bottom:24px;position:relative}
+.tstep:not(:last-child)::before{content:'';position:absolute;left:15px;top:36px;bottom:0;width:1.5px;background:var(--stone)}
+.tstep.s-done::before{background:var(--sage)}
+.tstep.s-active::before{background:rgba(232,130,58,.3)}
+.tdot{width:32px;height:32px;border-radius:50%;border:2px solid var(--stone);background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;transition:all .3s;position:relative;z-index:1}
+.tstep.s-active .tdot{border-color:var(--amber);background:var(--amber-l);animation:spulse 1.5s infinite}
+.tstep.s-done .tdot{border-color:var(--sage);background:var(--sage-l)}
+@keyframes spulse{0%,100%{box-shadow:0 0 0 0 rgba(232,130,58,.3)}50%{box-shadow:0 0 0 6px rgba(232,130,58,0)}}
+.ttitle{font-weight:600;font-size:14px;color:var(--navy);margin-bottom:4px}
+.tstep.s-active .ttitle{color:var(--amber)}
+.tstep.s-done .ttitle{color:var(--sage)}
+.tmeta{font-size:12px;color:var(--navy-60);line-height:1.5}
+.tpills{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tpill{font-size:11px;background:var(--cream);border:1px solid var(--stone);color:var(--navy-60);padding:2px 8px;border-radius:4px}
+
+/* SOURCES */
+.src-label{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--navy-60);margin-bottom:12px}
+.src-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.src-card{background:var(--cream);border:1px solid var(--stone);border-radius:8px;padding:14px;text-decoration:none;color:inherit;display:block;transition:all .15s;opacity:0;animation:fadeUp .3s forwards}
+.src-card:hover{border-color:var(--sage);box-shadow:var(--shadow)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.src-type{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.src-type.tavily{color:var(--amber)}.src-type.github{color:var(--navy-60)}
+.src-title{font-size:13px;font-weight:500;color:var(--navy);line-height:1.4;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.src-url{font-size:11px;color:var(--navy-60);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* REPORT */
+.rep-label{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--navy-60);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.rep-label::after{content:'';flex:1;height:1px;background:var(--stone)}
+.rep-body{font-size:15px;line-height:1.8;color:var(--navy)}
+.rep-body h2{font-family:var(--serif);font-size:22px;margin:28px 0 12px;color:var(--navy)}
+.rep-body h3{font-family:var(--serif);font-size:17px;margin:22px 0 10px}
+.rep-body p{margin-bottom:14px}
+.rep-body ul,.rep-body ol{padding-left:20px;margin-bottom:14px}
+.rep-body li{margin-bottom:6px}
+.rep-body a{color:var(--amber);text-decoration:underline;text-underline-offset:2px}
+.rep-body a:hover{color:#d4722e}
+.rep-body strong{font-weight:600}
+
+/* ERROR */
+.err-box{background:var(--red-l);border:1px solid rgba(217,95,67,.2);border-radius:8px;padding:16px 20px;color:var(--red);font-size:14px;display:flex;gap:10px;align-items:flex-start}
+
+/* FOOTER */
+footer{background:var(--navy);padding:56px 24px;text-align:center}
+.footer-inner{max-width:600px;margin:0 auto}
+.foot-logo{font-family:var(--serif);font-size:22px;color:#fff;margin-bottom:12px;display:flex;align-items:center;gap:8px;justify-content:center}
+.foot-tag{font-size:13px;color:rgba(255,255,255,.4);margin-bottom:28px;line-height:1.6}
+.foot-links{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
+.foot-link{display:flex;align-items:center;gap:7px;color:rgba(255,255,255,.5);text-decoration:none;font-size:13px;font-weight:500;transition:color .2s}
+.foot-link:hover{color:var(--amber)}
+.foot-link svg{width:16px;height:16px;flex-shrink:0}
+.foot-divider{height:1px;background:rgba(255,255,255,.08);margin-bottom:24px}
+.foot-bottom{font-size:12px;color:rgba(255,255,255,.25);line-height:1.6}
+.stack-tags{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px}
+.stag{font-size:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);padding:3px 9px;border-radius:4px;font-family:monospace}
+
+/* RESPONSIVE */
+@media(max-width:640px){
+  nav{padding:0 16px}
+  .nav-links{display:none}
+  .steps::before{display:none}
+  .step{padding:0 0 32px}
+  .steps{grid-template-columns:1fr}
+  .hero-stats{gap:20px}
+  .stat-div{display:none}
+  .query-row{flex-direction:column;align-items:stretch}
+  #runBtn{height:44px;justify-content:center}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="nav-logo"><span class="logo-dot"></span>ResearchMind AI</a>
+  <ul class="nav-links">
+    <li><a href="#what">What it does</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#tech">Stack</a></li>
+    <li><a href="#try" class="nav-cta">Try it →</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-badge"><span class="badge-dot"></span>LangGraph · MCP · Groq</div>
+  <h1>Research anything.<br><em>Deeply.</em> In seconds.</h1>
+  <p class="hero-sub">ResearchMind is an AI agent that breaks your question apart, searches the live web and GitHub, then synthesizes a cited report — automatically.</p>
+<div class="hero-actions">
+  <a href="#try" class="btn-primary">
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 5v2.5L9.5 9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Try it live
+  </a>
+</div>
+  <div class="hero-stats">
+    <div class="stat"><span class="stat-num">3</span><span class="stat-label">LangGraph Graphs</span></div>
+    <div class="stat-div"></div>
+    <div class="stat"><span class="stat-num">2</span><span class="stat-label">MCP Servers</span></div>
+    <div class="stat-div"></div>
+    <div class="stat"><span class="stat-num">~35s</span><span class="stat-label">Avg. Research Time</span></div>
+    <div class="stat-div"></div>
+    <div class="stat"><span class="stat-num">10+</span><span class="stat-label">Sources Per Query</span></div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- WHAT IT DOES -->
+<section class="section" id="what">
+  <p class="eyebrow">What it does</p>
+  <h2 class="sec-title">Not a chatbot. An autonomous research agent.</h2>
+  <p class="sec-sub">Most AI tools answer from memory. ResearchMind actively searches the live web and GitHub, then synthesizes what it finds into a structured, cited report.</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="ficon ic-a">🧠</div>
+      <div class="ftitle">Query decomposition</div>
+      <p class="fdesc">Your question is broken into 4 focused sub-questions before any search begins — covering definition, comparison, use cases, and limitations.</p>
+    </div>
+    <div class="feature-card">
+      <div class="ficon ic-s">🔍</div>
+      <div class="ftitle">Live web + GitHub search</div>
+      <p class="fdesc">Tavily MCP searches the live web for articles and docs. GitHub MCP searches repositories for real implementations. Both run for every sub-question.</p>
+    </div>
+    <div class="feature-card">
+      <div class="ficon ic-n">📊</div>
+      <div class="ftitle">Source scoring + dedup</div>
+      <p class="fdesc">All raw results are deduplicated by URL and ranked by relevance. Only the top sources reach the Writer — quality over quantity, always.</p>
+    </div>
+    <div class="feature-card">
+      <div class="ficon ic-a">📝</div>
+      <div class="ftitle">Cited report synthesis</div>
+      <p class="fdesc">The Writer graph synthesizes a markdown report with inline citations, key findings bullets, and a full sources list — in under 2 seconds.</p>
+    </div>
+    <div class="feature-card">
+      <div class="ficon ic-s">🔗</div>
+      <div class="ftitle">Model Context Protocol</div>
+      <p class="fdesc">Tools connect via MCP — an open standard for AI-tool integration. Swap Tavily for any MCP-compatible search provider without touching graph logic.</p>
+    </div>
+    <div class="feature-card">
+      <div class="ficon ic-n">⚡</div>
+      <div class="ftitle">Groq inference</div>
+      <p class="fdesc">All LLM nodes run on Groq's llama-3.3-70b-versatile at ~800 tokens/sec. Planner: 1–2s. Writer: under 2s. Fast, free, and capable.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- HOW IT WORKS -->
+<section class="how-section" id="how">
+  <div class="how-inner">
+    <p class="eyebrow" style="color:var(--amber)">How it works</p>
+    <h2 class="how-title">Three graphs.<br>One pipeline.</h2>
+    <p class="how-sub">Each LangGraph graph has exactly one job. State flows between them, accumulating results as it goes. Every node is independently testable.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Planner graph</div>
+        <p class="step-desc">Receives your query. Calls Groq with a JSON prompt to decompose it into 4 sub-questions — covering definition, comparison, use cases, and limitations.</p>
+        <span class="step-tag">decompose_query node</span>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Research graph</div>
+        <p class="step-desc">Loops over each sub-question. Calls Tavily MCP for web articles, then GitHub MCP for repositories. A scorer deduplicates and ranks all results by relevance.</p>
+        <span class="step-tag">search_web → search_github → score_sources</span>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">Writer graph</div>
+        <p class="step-desc">Selects the top sources, formats them into a numbered prompt, then calls Groq to synthesize a markdown report with inline citations and a sources list.</p>
+        <span class="step-tag">select_sources → synthesize_report</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section class="tech-section" id="tech">
+  <p class="eyebrow">Tech stack</p>
+  <h2 class="sec-title">What's under the hood</h2>
+  <p class="sec-sub" style="margin-bottom:0">Every layer chosen deliberately — fast, free-tier friendly, and production-grade in architecture.</p>
+  <div class="tech-grid">
+    <div class="tech-pill"><span class="td da"></span>LangGraph 0.2</div>
+    <div class="tech-pill"><span class="td da"></span>LangChain MCP</div>
+    <div class="tech-pill"><span class="td ds"></span>Groq llama-3.3-70b</div>
+    <div class="tech-pill"><span class="td ds"></span>Tavily MCP</div>
+    <div class="tech-pill"><span class="td dn"></span>GitHub MCP</div>
+    <div class="tech-pill"><span class="td dn"></span>FastAPI</div>
+    <div class="tech-pill"><span class="td dg"></span>Python 3.11</div>
+    <div class="tech-pill"><span class="td dg"></span>Pydantic v2</div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- HOW TO USE -->
+<section class="section" style="padding-bottom:32px">
+  <p class="eyebrow">How to use</p>
+  <h2 class="sec-title">Three steps to a research report</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-top:0">
+    <div style="padding:24px 0">
+      <div style="font-family:var(--serif);font-size:36px;color:var(--stone);margin-bottom:12px">01</div>
+      <div style="font-weight:600;margin-bottom:8px">Type your question</div>
+      <p style="font-size:14px;color:var(--navy-60);line-height:1.65">Enter any research question — technical comparisons, concept explanations, framework evaluations. Be specific for better results.</p>
+    </div>
+    <div style="padding:24px 0">
+      <div style="font-family:var(--serif);font-size:36px;color:var(--stone);margin-bottom:12px">02</div>
+      <div style="font-weight:600;margin-bottom:8px">Watch the agent work</div>
+      <p style="font-size:14px;color:var(--navy-60);line-height:1.65">The timeline shows each graph firing in sequence — Planner decomposing, Research searching, Writer synthesizing. Takes about 35 seconds.</p>
+    </div>
+    <div style="padding:24px 0">
+      <div style="font-family:var(--serif);font-size:36px;color:var(--stone);margin-bottom:12px">03</div>
+      <div style="font-weight:600;margin-bottom:8px">Read the cited report</div>
+      <p style="font-size:14px;color:var(--navy-60);line-height:1.65">Get a structured markdown report with real source links. Every claim is cited. Click any source card to read the original.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- LIVE INTERFACE -->
+<section class="research-section" id="try">
+  <div class="research-inner">
+    <div style="text-align:center;margin-bottom:48px">
+      <p class="eyebrow">Live demo</p>
+      <h2 class="sec-title" style="max-width:100%;text-align:center">Ask it anything</h2>
+      <p class="sec-sub" style="max-width:100%;text-align:center;margin-bottom:0">
+        Type a research question. The agent will plan, search, and write a cited report in ~35 seconds.
+        <br><span style="font-size:13px;opacity:.7">Backend must be running at localhost:8000</span>
+      </p>
+    </div>
+
+    <div class="interface-box">
+      <div class="query-area">
+        <span class="qlabel">Your research question</span>
+        <div class="query-row">
+          <textarea id="queryInput" rows="2" placeholder="e.g. How does LangGraph compare to CrewAI for production AI agents?"></textarea>
+          <button id="runBtn" onclick="runResearch()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Research
+          </button>
+        </div>
+      </div>
+      <div class="sample-queries">
+        <span style="font-size:11px;font-weight:600;color:var(--navy-60);text-transform:uppercase;letter-spacing:.06em;align-self:center;white-space:nowrap">Try:</span>
+        <button class="sample-q" onclick="setQuery(this)">LangGraph vs CrewAI for production agents</button>
+        <button class="sample-q" onclick="setQuery(this)">How does RAG work in production LLM systems?</button>
+        <button class="sample-q" onclick="setQuery(this)">What is the Model Context Protocol (MCP)?</button>
+        <button class="sample-q" onclick="setQuery(this)">Best vector databases for AI applications 2025</button>
+      </div>
+      <div class="results-area" id="resultsArea">
+        <div class="empty-state">
+          <div class="empty-icon">◎</div>
+          <div class="empty-title">Ready to research</div>
+          <p class="empty-sub">Enter a question above and click Research. Watch the Planner, Research, and Writer graphs fire in sequence.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="foot-logo">
+      <span style="width:8px;height:8px;background:var(--amber);border-radius:50%;display:inline-block;flex-shrink:0"></span>
+      ResearchMind AI
+    </div>
+    <p class="foot-tag">
+      A portfolio project demonstrating autonomous multi-agent AI systems<br>
+      built with LangGraph orchestration and MCP tool integration.
+    </p>
+    <div class="foot-links">
+      <a href="https://github.com/patelyogi2635-gif" target="_blank" class="foot-link">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <a href="https://linkedin.com/in/patel-yogi-0a2526346" target="_blank" class="foot-link">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M0 1.146C0 .513.526 0 1.175 0h13.65C15.474 0 16 .513 16 1.146v13.708c0 .633-.526 1.146-1.175 1.146H1.175C.526 16 0 15.487 0 14.854V1.146zm4.943 12.248V6.169H2.542v7.225h2.401zm-1.2-8.212c.837 0 1.358-.554 1.358-1.248-.015-.709-.52-1.248-1.342-1.248-.822 0-1.359.54-1.359 1.248 0 .694.521 1.248 1.327 1.248h.016zm4.908 8.212V9.359c0-.216.016-.432.08-.586.173-.431.568-.878 1.232-.878.869 0 1.216.662 1.216 1.634v3.865h2.401V9.25c0-2.22-1.184-3.252-2.764-3.252-1.274 0-1.845.7-2.165 1.193v.025h-.016a5.54 5.54 0 0 1 .016-.025V6.169h-2.4c.03.678 0 7.225 0 7.225h2.4z"/></svg>
+        LinkedIn
+      </a>
+    </div>
+    <div class="foot-divider"></div>
+    <p class="foot-bottom">Built with LangGraph · MCP · FastAPI · Groq · Python 3.11</p>
+    <div class="stack-tags">
+      <span class="stag">LangGraph</span>
+      <span class="stag">langchain-mcp-adapters</span>
+      <span class="stag">FastAPI</span>
+      <span class="stag">Groq llama-3.3-70b</span>
+      <span class="stag">Tavily MCP</span>
+      <span class="stag">GitHub MCP</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+const API = "http://127.0.0.1:8000";
+
+function setQuery(btn) {
+  document.getElementById("queryInput").value = btn.textContent.trim();
+  document.getElementById("queryInput").focus();
+}
+
+function md(text) {
+  return text
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/!?\[([^\]]*)\]\(([^)]+)\)/g, (match, text, url) => {
+     if (match.startsWith('!')) return ''; // skip image markdown
+     if (!text || text === url) return `<a href="${url}" target="_blank" rel="noopener">${url}</a>`;
+  return `<a href="${url}" target="_blank" rel="noopener">${text}</a>`;
+})
+    .replace(/^\* (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)/g,'<ul>$1</ul>')
+    .split('\n').map(l => {
+      if (!l.trim()) return '';
+      if (l.match(/^<[h2-6ul]/)) return l;
+      return `<p>${l}</p>`;
+    }).join('');
+}
+
+function setStep(id, status, metaHTML) {
+  const el = document.getElementById('ts-' + id);
+  const meta = document.getElementById('tm-' + id);
+  if (!el) return;
+  el.className = 'tstep s-' + status;
+  if (metaHTML && meta) meta.innerHTML = metaHTML;
+}
+
+async function runResearch() {
+  const query = document.getElementById("queryInput").value.trim();
+  if (query.length < 10) {
+    const inp = document.getElementById("queryInput");
+    inp.style.borderColor = "var(--red)";
+    inp.style.outline = "none";
+    setTimeout(() => inp.style.borderColor = "", 1800);
+    return;
+  }
+
+  const btn = document.getElementById("runBtn");
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5" stroke-dasharray="7 7"><animateTransform attributeName="transform" type="rotate" from="0 6.5 6.5" to="360 6.5 6.5" dur="0.75s" repeatCount="indefinite"/></circle></svg> Researching…`;
+
+  document.getElementById("resultsArea").innerHTML = `
+    <div class="timeline active" id="tl">
+      <div class="tstep s-active" id="ts-plan">
+        <div class="tdot">🧠</div>
+        <div style="flex:1;padding-top:4px">
+          <div class="ttitle">Planning</div>
+          <div class="tmeta" id="tm-plan">Decomposing your query into sub-questions…</div>
+        </div>
+      </div>
+      <div class="tstep" id="ts-research">
+        <div class="tdot">🔍</div>
+        <div style="flex:1;padding-top:4px">
+          <div class="ttitle">Researching</div>
+          <div class="tmeta" id="tm-research">Waiting for planner…</div>
+        </div>
+      </div>
+      <div class="tstep" id="ts-write">
+        <div class="tdot">📝</div>
+        <div style="flex:1;padding-top:4px">
+          <div class="ttitle">Writing report</div>
+          <div class="tmeta" id="tm-write">Waiting for research…</div>
+        </div>
+      </div>
+    </div>
+    <div id="srcWrap"></div>
+    <div id="repWrap"></div>`;
+
+  try {
+    // Animate planning step after short delay
+    await new Promise(r => setTimeout(r, 600));
+    setStep("plan", "active", "Calling Groq llama-3.3-70b to plan sub-questions…");
+
+    const resp = await fetch(`${API}/api/research`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({query})
+    });
+
+    if (!resp.ok) {
+      const e = await resp.json().catch(() => ({detail: resp.statusText}));
+      throw new Error(e.detail || "Request failed");
+    }
+
+    const data = await resp.json();
+
+    // Step 1 done
+    const pills = (data.sub_questions || [])
+      .map(q => `<span class="tpill">${q.length > 55 ? q.slice(0,55)+'…' : q}</span>`).join('');
+    setStep("plan", "done",
+      `Generated ${data.sub_questions.length} sub-questions
+       <div class="tpills">${pills}</div>`);
+
+    // Step 2 done
+    setStep("research", "done",
+      `Found ${data.source_count} sources via Tavily + GitHub MCP`);
+
+    // Step 3 done
+    setStep("write", "done",
+      `Report synthesized — ${data.report.length} chars`);
+
+    // Sources
+    if (data.sources && data.sources.length) {
+      const cards = data.sources.map((s, i) => `
+        <a class="src-card" href="${s.url}" target="_blank" rel="noopener" style="animation-delay:${i*55}ms">
+          <div class="src-type ${s.source}">${s.source === 'tavily' ? '🌐 Web' : '⚙️ GitHub'}</div>
+          <div class="src-title">${s.title}</div>
+          <div class="src-url">${s.url}</div>
+        </a>`).join('');
+      document.getElementById("srcWrap").innerHTML = `
+        <div style="margin-top:28px">
+          <div class="src-label">Sources (${data.sources.length})</div>
+          <div class="src-grid">${cards}</div>
+        </div>`;
+    }
+
+    // Report
+    document.getElementById("repWrap").innerHTML = `
+      <div style="margin-top:28px">
+        <div class="rep-label">Research Report</div>
+        <div class="rep-body">${md(data.report)}</div>
+      </div>`;
+
+  } catch(err) {
+    document.getElementById("resultsArea").innerHTML = `
+      <div class="err-box">
+        <span style="font-size:18px;flex-shrink:0">⚠</span>
+        <div>
+          <strong>Research failed</strong><br>${err.message}
+          <br><span style="font-size:12px;opacity:.65;margin-top:4px;display:block">
+            Make sure the FastAPI backend is running at ${API} — run <code style="background:rgba(217,95,67,.1);padding:1px 5px;border-radius:3px">python run.py</code> in your backend folder.
+          </span>
+        </div>
+      </div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Research`;
+  }
+}
+
+document.getElementById("queryInput").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runResearch(); }
+});
+</script>
+</body>
+</html>
