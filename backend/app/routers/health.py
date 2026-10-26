@@ -1,28 +1,28 @@
-import logging
-from fastapi import APIRouter, Request
-from app.mcp_client import verify_mcp_connection, get_mcp_tools
+from fastapi import APIRouter
 
-logger = logging.getLogger(__name__)
+from app.controllers.health_controller import check_mcp_servers, get_health, list_mcp_tools
+from app.schemas.common import ErrorResponse, HealthResponse, McpHealthResponse, ToolsResponse
+
 router = APIRouter()
 
 
-@router.get("/health")
-async def health_check():
-    return {"status": "ok", "service": "research-agent"}
+@router.get("/health", response_model=HealthResponse)
+async def health_check() -> HealthResponse:
+    """Liveness probe used by the deployment platform."""
+    return get_health()
 
 
-@router.get("/health/mcp")
-async def mcp_health():
-    result = await verify_mcp_connection()
-    return result
+@router.get("/health/mcp", response_model=McpHealthResponse)
+async def mcp_health() -> McpHealthResponse:
+    """Reports the connection status of each MCP server."""
+    return await check_mcp_servers()
 
 
-@router.get("/health/tools")
-async def list_tools():
-    tools = await get_mcp_tools()
-    return {
-        "tools": [
-            {"name": t.name, "description": t.description[:120]}
-            for t in tools
-        ]
-    }
+@router.get(
+    "/health/tools",
+    response_model=ToolsResponse,
+    responses={502: {"model": ErrorResponse}},
+)
+async def mcp_tools() -> ToolsResponse:
+    """Lists the tools exposed by the MCP servers."""
+    return await list_mcp_tools()
