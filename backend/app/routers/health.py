@@ -1,7 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.controllers.health_controller import check_mcp_servers, get_health, list_mcp_tools
-from app.schemas.common import ErrorResponse, HealthResponse, McpHealthResponse, ToolsResponse
+from app.controllers.health_controller import get_health, get_readiness
+from app.core.runtime import get_app_runtime
+from app.schemas.common import ErrorResponse, HealthResponse, ReadinessResponse
+from app.schemas.context import Runtime
 
 router = APIRouter()
 
@@ -12,17 +14,11 @@ async def health_check() -> HealthResponse:
     return get_health()
 
 
-@router.get("/health/mcp", response_model=McpHealthResponse)
-async def mcp_health() -> McpHealthResponse:
-    """Reports the connection status of each MCP server."""
-    return await check_mcp_servers()
-
-
 @router.get(
-    "/health/tools",
-    response_model=ToolsResponse,
-    responses={502: {"model": ErrorResponse}},
+    "/health/ready",
+    response_model=ReadinessResponse,
+    responses={503: {"model": ErrorResponse}},
 )
-async def mcp_tools() -> ToolsResponse:
-    """Lists the tools exposed by the MCP servers."""
-    return await list_mcp_tools()
+async def readiness(runtime: Runtime = Depends(get_app_runtime)) -> ReadinessResponse:
+    """Readiness probe with queue and job counts. Does not call external providers."""
+    return get_readiness(runtime)

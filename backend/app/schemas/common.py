@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class ErrorDetail(BaseModel):
@@ -20,21 +20,8 @@ class HealthResponse(BaseModel):
     service: str
 
 
-class McpServerStatus(BaseModel):
+class ReadinessResponse(BaseModel):
     status: str
-    tools: list[str] = Field(default_factory=list)
-    error: str | None = None
-
-
-class McpHealthResponse(BaseModel):
-    servers: dict[str, McpServerStatus]
-    total_connected: int
-
-
-class ToolInfo(BaseModel):
-    name: str
-    description: str
-
-
-class ToolsResponse(BaseModel):
-    tools: list[ToolInfo]
+    queued_jobs: int
+    running_jobs: int
+    stored_jobs: int

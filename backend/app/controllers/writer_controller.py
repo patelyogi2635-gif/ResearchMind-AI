@@ -1,12 +1,15 @@
+import json
 import logging
+from urllib.parse import urlparse
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.graph import END, StateGraph
+from langchain_core.runnables import RunnableConfig
 
 from app.core.errors import AppError
 from app.core.llm import get_llm
-from app.core.prompts import WRITER_SYSTEM, WRITER_USER
-from app.schemas.research import RDBrief
+from app.core.prompts import WRITER_JSON_INSTRUCTIONS, WRITER_SYSTEM, WRITER_USER
+from app.core.runtime import get_runtime
+from app.schemas.research import Confidence, RDBrief
 from app.schemas.state import ResearchState, SearchResult
 
 logger = logging.getLogger(__name__)
@@ -14,7 +17,14 @@ logger = logging.getLogger(__name__)
 MAX_WRITER_WEB_SOURCES = 4
 MAX_WRITER_GITHUB_SOURCES = 2
 MAX_WRITER_SOURCES = 6
-MAX_BRIEF_ATTEMPTS = 2
+MAX_BRIEF_ATTEMPTS = 3
+WRITER_MAX_TOKENS = 8000
+WRITER_TEMPERATURE = 0.2
+ERROR_LOG_CHARS = 300
+MIN_INDEPENDENT_DOMAINS = 2
+
+CONFIDENCE_RANK = {Confidence.LOW: 0, Confidence.MEDIUM: 1, Confidence.HIGH: 2}
+BRIEF_SCHEMA_JSON = json.dumps(RDBrief.model_json_schema(), separators=(",", ":"))
 
 
 def _format_sources_for_prompt(sources: list[SearchResult]) -> str:
@@ -53,9 +63,83 @@ def sanitize_citations(brief: RDBrief, source_count: int) -> RDBrief:
     return brief
 
 
+def _domain(url: str) -> str:
+    """Returns the host of a URL without a leading www."""
+    return urlparse(url).netloc.lower().removeprefix("www.")
+
+
+def _names_match(left: str, right: str) -> bool:
+    """Case-insensitive containment match between two option names."""
+    a, b = left.strip().lower(), right.strip().lower()
+    return bool(a) and bool(b) and (a in b or b in a)
+
+
+def _supporting_source_ids(brief: RDBrief) -> set[int]:
+    """Collects the source numbers that back the recommended option.
+
+    Falls back to every cited source when the recommendation does not name a
+    single evaluated option.
+    """
+    choice = brief.recommendation.choice
+    ids: set[int] = set()
+    for option in brief.options:
+        if _names_match(option.name, choice):
+            ids.update(option.source_ids)
+    for entry in brief.comparison:
+        if _names_match(entry.option, choice):
+            ids.update(entry.source_ids)
+    if ids:
+        return ids
+    for option in brief.options:
+        ids.update(option.source_ids)
+    for entry in brief.comparison:
+        ids.update(entry.source_ids)
+    return ids
+
+
+def cap_confidence(brief: RDBrief, sources: list[SearchResult]) -> RDBrief:
+    """Caps the recommendation confidence by the number of independent domains.
+
+    One source domain supports at most medium confidence, and no supporting
+    source caps it at low. A note is added to the limitations when a cap applies.
+
+    Args:
+        brief: The generated brief with sanitized citations.
+        sources: The numbered sources the brief cites.
+
+    Returns:
+        The same brief, with confidence lowered when the evidence is too thin.
+    """
+    domains = {
+        _domain(sources[i - 1]["url"])
+        for i in _supporting_source_ids(brief)
+        if 1 <= i <= len(sources)
+    }
+    if not domains:
+        cap = Confidence.LOW
+    elif len(domains) < MIN_INDEPENDENT_DOMAINS:
+        cap = Confidence.MEDIUM
+    else:
+        return brief
+
+    recommendation = brief.recommendation
+    if CONFIDENCE_RANK[recommendation.confidence] > CONFIDENCE_RANK[cap]:
+        recommendation.confidence = cap
+        brief.limitations.append(
+            f"Confidence capped at {cap.value}: the recommendation is backed by "
+            f"{len(domains)} independent source domain(s)."
+        )
+    return brief
+
+
 def _cite(ids: list[int]) -> str:
     """Renders citation numbers as ' [1][2]' or an empty string."""
     return " " + "".join(f"[{i}]" for i in ids) if ids else ""
+
+
+def _clean_title(title: str) -> str:
+    """Replaces square brackets so a title cannot break markdown link syntax."""
+    return " ".join(title.replace("[", "(").replace("]", ")").split())
 
 
 def render_brief_markdown(brief: RDBrief, sources: list[SearchResult]) -> str:
@@ -145,18 +229,19 @@ def render_brief_markdown(brief: RDBrief, sources: list[SearchResult]) -> str:
     if sources:
         lines += ["## Sources", ""]
         lines += [
-            f"* [{index}] [{source['title']}]({source['url']})"
+            f"* [{index}] [{_clean_title(source['title'])}]({source['url']})"
             for index, source in enumerate(sources, 1)
         ]
 
     return "\n".join(lines).strip()
 
 
-async def select_sources(state: ResearchState) -> dict:
+async def select_sources(state: ResearchState, config: RunnableConfig) -> dict:
     """Graph node that picks the best sources for the writer prompt.
 
     Args:
         state: Current pipeline state containing ranked `sources`.
+        config: Run config (unused, kept for a uniform node signature).
 
     Returns:
         A partial state update with the selected `sources`.
@@ -170,11 +255,12 @@ async def select_sources(state: ResearchState) -> dict:
     return {"sources": selected}
 
 
-async def synthesize_brief(state: ResearchState) -> dict:
+async def synthesize_brief(state: ResearchState, config: RunnableConfig) -> dict:
     """Graph node that generates the structured R&D brief and its markdown form.
 
     Args:
         state: Current pipeline state with `query`, `sub_questions` and `sources`.
+        config: Run config carrying the shared runtime.
 
     Returns:
         A partial state update with `brief` and `report`.
@@ -182,12 +268,15 @@ async def synthesize_brief(state: ResearchState) -> dict:
     Raises:
         AppError: If no valid structured brief is produced after all attempts.
     """
+    runtime = get_runtime(config)
     query = state["query"]
     sources = state.get("sources", [])
     logger.info("writer.start sources=%d", len(sources))
 
     messages = [
-        SystemMessage(content=WRITER_SYSTEM),
+        SystemMessage(
+            content=WRITER_SYSTEM + "\n\n" + WRITER_JSON_INSTRUCTIONS.format(schema=BRIEF_SCHEMA_JSON)
+        ),
         HumanMessage(
             content=WRITER_USER.format(
                 query=query,
@@ -196,14 +285,19 @@ async def synthesize_brief(state: ResearchState) -> dict:
             )
         ),
     ]
-    writer = get_llm(temperature=0.3).with_structured_output(RDBrief)
+    writer = get_llm(
+        temperature=WRITER_TEMPERATURE, max_tokens=WRITER_MAX_TOKENS
+    ).with_structured_output(RDBrief, method="json_mode")
 
     brief: RDBrief | None = None
     for attempt in range(1, MAX_BRIEF_ATTEMPTS + 1):
         try:
-            brief = await writer.ainvoke(messages)
+            async with runtime.llm_semaphore:
+                brief = await writer.ainvoke(messages)
         except Exception as exc:
-            logger.warning("writer.attempt_failed attempt=%d error=%s", attempt, exc)
+            logger.warning(
+                "writer.attempt_failed attempt=%d error=%s", attempt, str(exc)[:ERROR_LOG_CHARS]
+            )
             continue
         if brief is not None:
             break
@@ -215,21 +309,12 @@ async def synthesize_brief(state: ResearchState) -> dict:
             code="brief_generation_failed",
         )
 
-    brief = sanitize_citations(brief, len(sources))
+    brief = cap_confidence(sanitize_citations(brief, len(sources)), sources)
     report = render_brief_markdown(brief, sources)
-    logger.info("writer.done options=%d report_chars=%d", len(brief.options), len(report))
+    logger.info(
+        "writer.done options=%d confidence=%s report_chars=%d",
+        len(brief.options),
+        brief.recommendation.confidence.value,
+        len(report),
+    )
     return {"brief": brief, "report": report}
-
-
-def build_writer_graph():
-    """Builds and compiles the writer graph: select_sources -> synthesize_brief -> END."""
-    graph = StateGraph(ResearchState)
-    graph.add_node("select_sources", select_sources)
-    graph.add_node("synthesize_brief", synthesize_brief)
-    graph.set_entry_point("select_sources")
-    graph.add_edge("select_sources", "synthesize_brief")
-    graph.add_edge("synthesize_brief", END)
-    return graph.compile()
-
-
-writer_graph = build_writer_graph()

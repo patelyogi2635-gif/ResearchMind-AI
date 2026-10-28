@@ -1,7 +1,6 @@
 langgraph==0.2.55
 langchain==0.3.13
 langchain-groq==0.2.3
-langchain-mcp-adapters==0.1.0
 
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
@@ -11,3 +10,4 @@ python-dotenv==1.0.1
 pydantic==2.10.4
 pydantic-settings==2.7.0
 httpx==0.28.1
+tenacity==9.0.0

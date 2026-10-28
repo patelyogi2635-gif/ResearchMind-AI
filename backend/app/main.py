@@ -9,26 +9,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logger import request_id_ctx, setup_logging
+from app.core.runtime import close_runtime, create_runtime
 from app.routers import health, research
 
 logger = logging.getLogger(__name__)
 
 APP_TITLE = "ResearchMind AI - R&D Assistant"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Logs application startup and shutdown."""
+    """Creates the shared runtime at startup and releases it at shutdown."""
     settings = get_settings()
+    runtime = create_runtime(settings)
+    app.state.runtime = runtime
     logger.info(
-        "app.startup env=%s version=%s model=%s",
+        "app.startup env=%s version=%s model=%s pipelines=%d searches=%d llm_calls=%d",
         settings.app_env,
         APP_VERSION,
         settings.llm_model,
+        settings.max_concurrent_pipelines,
+        settings.max_concurrent_searches,
+        settings.max_concurrent_llm_calls,
     )
-    yield
-    logger.info("app.shutdown")
+    try:
+        yield
+    finally:
+        await close_runtime(runtime)
+        logger.info("app.shutdown")
 
 
 async def request_context_middleware(request: Request, call_next):
@@ -71,7 +80,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["*"],
         expose_headers=["X-Request-ID"],
     )

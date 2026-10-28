@@ -1,264 +1,218 @@
-import json
+import asyncio
 import logging
 import re
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.graph import END, StateGraph
+import httpx
+from langchain_core.runnables import RunnableConfig
 
-from app.core.llm import get_fast_llm
-from app.core.mcp_client import get_mcp_tools
-from app.core.prompts import SEARCH_QUERY_SYSTEM, SEARCH_QUERY_USER
+from app.core.errors import AppError
+from app.core.runtime import get_runtime
+from app.core.search_api import github_search_repositories, tavily_search
+from app.schemas.context import Runtime
 from app.schemas.state import ResearchState, SearchResult
 
 logger = logging.getLogger(__name__)
 
-MAX_RESULTS_PER_SOURCE = 2
 MAX_TOTAL_SOURCES = 6
-SNIPPET_CHARS = 500
-TAVILY_DEFAULT_SCORE = 0.7
-GITHUB_TEXT_SCORE = 0.5
+MAX_GITHUB_RESULTS = 3
+SNIPPET_CHARS = 700
 MIN_GITHUB_STARS = 10
 GITHUB_QUERY_WORDS = 4
-
-FIELD_LABELS = {
-    "title": "title",
-    "name": "title",
-    "url": "url",
-    "link": "url",
-    "content": "content",
-    "description": "content",
-}
+GITHUB_MIN_STARS_FILTER = 50
+GITHUB_STARS_SCORE_SCALE = 5000
 
 GITHUB_STOP_WORDS = frozenset(
     {
-        "what", "how", "does", "is", "the", "are", "for", "and", "of", "in", "to", "a", "an",
-        "it", "its", "with", "vs", "between", "compared", "differ", "difference", "using",
+        "what", "which", "how", "does", "do", "is", "the", "are", "for", "and", "of", "in", "to",
+        "a", "an", "it", "its", "with", "vs", "versus", "between", "compared", "differ",
+        "difference", "using", "should", "we", "use", "our", "my", "i", "can", "best", "good",
+        "need", "want", "choose", "pick", "when", "why", "who", "where", "about", "on", "at",
+        "by", "from", "be", "this", "that", "or",
     }
 )
 
 
-def _unwrap_text(raw: Any) -> str:
-    """Extracts plain text from the different shapes MCP tools return."""
-    if hasattr(raw, "content"):
-        raw = raw.content
-    if isinstance(raw, list):
-        parts = [_unwrap_text(item) for item in raw]
-        return "\n\n".join(part for part in parts if part)
-    if isinstance(raw, dict):
-        return str(raw.get("text", "")).strip()
-    if hasattr(raw, "text"):
-        raw = raw.text
-    return raw.strip() if isinstance(raw, str) else ""
+def _as_float(value: Any) -> float:
+    """Converts a value to float, returning 0.0 when it is not numeric."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
-def _parse_text_blocks(text: str, source: str, sub_question: str, score: float) -> list[SearchResult]:
-    """Parses 'Title/URL/Content' style text blocks into search results.
+def _tavily_to_results(
+    items: list[dict[str, Any]], sub_question: str, min_score: float
+) -> list[SearchResult]:
+    """Maps Tavily results to search results using Tavily's own relevance score.
 
     Args:
-        text: Raw tool output split into blocks by blank lines.
-        source: Source label stored on each result ("tavily" or "github").
+        items: Raw Tavily result dicts.
         sub_question: The sub-question the results answer.
-        score: Relevance score assigned to every parsed result.
+        min_score: Results scoring below this value are dropped.
 
     Returns:
-        Up to MAX_RESULTS_PER_SOURCE results that have a title and an http URL.
+        Search results with a title, an http URL and a score of at least min_score.
     """
-    results: list[SearchResult] = []
-    for block in text.split("\n\n"):
-        fields = {"title": "", "url": "", "content": ""}
-        current: str | None = None
-        for line in block.strip().splitlines():
-            label, separator, value = line.partition(":")
-            key = FIELD_LABELS.get(label.strip().lower()) if separator else None
-            if key:
-                fields[key] = value.strip()
-                current = key
-            elif current == "content":
-                fields["content"] += " " + line.strip()
-
-        url = fields["url"]
-        if url.startswith("//"):
-            url = "https:" + url
-        if fields["title"] and url.startswith("http"):
-            results.append(
-                SearchResult(
-                    sub_question=sub_question,
-                    source=source,
-                    title=fields["title"],
-                    url=url,
-                    content=fields["content"].strip()[:SNIPPET_CHARS],
-                    relevance_score=score,
-                )
-            )
-        if len(results) >= MAX_RESULTS_PER_SOURCE:
-            break
-    return results
-
-
-def _parse_tavily_results(raw: Any, sub_question: str) -> list[SearchResult]:
-    """Parses Tavily MCP output into search results."""
-    text = _unwrap_text(raw)
-    if not text:
-        return []
-    return _parse_text_blocks(text, "tavily", sub_question, TAVILY_DEFAULT_SCORE)
-
-
-def _parse_github_results(raw: Any, sub_question: str) -> list[SearchResult]:
-    """Parses GitHub MCP output (JSON or text) into search results.
-
-    Repositories with fewer than MIN_GITHUB_STARS stars or no description are
-    dropped. The score grows with the square root of the star count.
-    """
-    text = _unwrap_text(raw)
-    if not text:
-        return []
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        return _parse_text_blocks(text, "github", sub_question, GITHUB_TEXT_SCORE)
-
-    items = data.get("items", []) if isinstance(data, dict) else []
     results: list[SearchResult] = []
     for item in items:
         if not isinstance(item, dict):
             continue
-        stars = item.get("stargazers_count", 0)
-        description = item.get("description") or ""
-        if stars < MIN_GITHUB_STARS or not description:
+        title = str(item.get("title") or "").strip()
+        url = str(item.get("url") or "").strip()
+        score = _as_float(item.get("score"))
+        if not title or not url.startswith("http") or score < min_score:
             continue
         results.append(
             SearchResult(
                 sub_question=sub_question,
-                source="github",
-                title=item.get("full_name", ""),
-                url=item.get("html_url", ""),
-                content=f"{description[:SNIPPET_CHARS]} | stars: {stars}",
-                relevance_score=min(1.0, (stars / 5000) ** 0.5),
+                source="tavily",
+                title=title,
+                url=url,
+                content=str(item.get("content") or "").strip()[:SNIPPET_CHARS],
+                relevance_score=round(score, 3),
             )
         )
-        if len(results) >= MAX_RESULTS_PER_SOURCE:
-            break
     return results
 
 
-def _build_github_query(sub_question: str) -> str:
-    """Reduces a natural-language sub-question to a short GitHub search query."""
-    cleaned = re.sub(r"[^a-zA-Z0-9 ]", "", sub_question).lower().split()
-    words = [word for word in cleaned if word not in GITHUB_STOP_WORDS]
-    return " ".join(words[:GITHUB_QUERY_WORDS]) or sub_question.split()[0]
+def _github_to_results(items: list[dict[str, Any]], query: str) -> list[SearchResult]:
+    """Maps GitHub repositories to search results with health signals.
 
-
-def _find_tool(tools: list, *keywords: str):
-    """Returns the first tool whose name contains every keyword, or None."""
-    for tool in tools:
-        name = tool.name.lower()
-        if all(keyword in name for keyword in keywords):
-            return tool
-    return None
-
-
-async def _load_tool(server: str, *keywords: str):
-    """Loads one MCP tool, returning None instead of raising when unavailable."""
-    try:
-        tools = await get_mcp_tools(servers=[server])
-    except Exception as exc:
-        logger.error("search.mcp_unavailable server=%s error=%s", server, exc)
-        return None
-    tool = _find_tool(tools, *keywords)
-    if tool is None:
-        logger.error("search.tool_missing server=%s keywords=%s", server, keywords)
-    return tool
-
-
-async def _optimize_query(llm, sub_question: str) -> str:
-    """Rewrites a sub-question into a search-engine friendly query."""
-    try:
-        message = await llm.ainvoke(
-            [
-                SystemMessage(content=SEARCH_QUERY_SYSTEM),
-                HumanMessage(content=SEARCH_QUERY_USER.format(sub_question=sub_question)),
-            ]
-        )
-    except Exception as exc:
-        logger.warning("search_web.query_optimize_failed error=%s", exc)
-        return sub_question
-    return str(message.content).strip().strip('"') or sub_question
-
-
-async def search_web(state: ResearchState) -> dict:
-    """Graph node that searches the web via the Tavily MCP server.
+    Repositories with fewer than MIN_GITHUB_STARS stars or no description are
+    dropped. The content carries stars, licence and last push date so the writer
+    can judge maturity. The score grows with the square root of the star count.
 
     Args:
-        state: Current pipeline state containing `sub_questions`.
+        items: Raw repository dicts from the GitHub search API.
+        query: The research topic the repositories relate to.
 
     Returns:
-        A partial state update with `search_results`. The list is empty when the
-        tool is unavailable or every call failed.
+        Search results ordered as received (already sorted by stars).
     """
-    sub_questions = state.get("sub_questions", [])
-    if not sub_questions:
-        logger.warning("search_web.skipped reason=no_sub_questions")
-        return {"search_results": []}
-
-    tool = await _load_tool("tavily", "search")
-    if tool is None:
-        return {"search_results": []}
-
-    llm = get_fast_llm()
-    collected: list[SearchResult] = []
-    for sub_question in sub_questions:
-        search_query = await _optimize_query(llm, sub_question)
-        try:
-            raw = await tool.ainvoke({"query": search_query})
-        except Exception as exc:
-            logger.error("search_web.call_failed query=%r error=%s", search_query, exc)
+    results: list[SearchResult] = []
+    for item in items:
+        if not isinstance(item, dict):
             continue
-        results = _parse_tavily_results(raw, sub_question)
-        logger.info("search_web.done query=%r results=%d", search_query, len(results))
-        collected.extend(results)
-    return {"search_results": collected}
+        stars = item.get("stargazers_count")
+        description = item.get("description") or ""
+        url = item.get("html_url") or ""
+        if not isinstance(stars, int) or stars < MIN_GITHUB_STARS or not description or not url:
+            continue
+        license_info = item.get("license")
+        license_id = (
+            license_info.get("spdx_id") if isinstance(license_info, dict) else None
+        ) or "unspecified"
+        last_push = str(item.get("pushed_at") or "")[:10] or "unknown"
+        results.append(
+            SearchResult(
+                sub_question=query,
+                source="github",
+                title=item.get("full_name") or url,
+                url=url,
+                content=(
+                    f"{description[:SNIPPET_CHARS]} | stars: {stars} | "
+                    f"license: {license_id} | last push: {last_push}"
+                ),
+                relevance_score=min(1.0, (stars / GITHUB_STARS_SCORE_SCALE) ** 0.5),
+            )
+        )
+    return results
 
 
-async def search_github(state: ResearchState) -> dict:
-    """Graph node that searches GitHub repositories via the GitHub MCP server.
+def _build_github_query(query: str) -> str:
+    """Reduces the research topic to a short GitHub repository search query.
+
+    Drops stop words and numeric tokens, keeps the first few keywords and adds a
+    minimum-stars qualifier so tiny or abandoned repositories are filtered out.
+    """
+    cleaned = re.sub(r"[^a-zA-Z0-9 ]", " ", query).lower().split()
+    words = [w for w in cleaned if w not in GITHUB_STOP_WORDS and not w[0].isdigit()]
+    keywords = " ".join(words[:GITHUB_QUERY_WORDS]) or query.split()[0]
+    return f"{keywords} stars:>{GITHUB_MIN_STARS_FILTER}"
+
+
+async def _search_web_one(runtime: Runtime, sub_question: str) -> list[SearchResult]:
+    """Searches Tavily for one sub-question, returning an empty list on failure."""
+    settings = runtime.settings
+    try:
+        async with runtime.search_semaphore:
+            items = await tavily_search(
+                runtime.http, sub_question, settings.tavily_results_per_query
+            )
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.error("search_web.call_failed question=%r error=%s", sub_question, exc)
+        return []
+    results = _tavily_to_results(items, sub_question, settings.min_relevance_score)
+    logger.info("search_web.done question=%r results=%d", sub_question, len(results))
+    return results
+
+
+async def search_web(state: ResearchState, config: RunnableConfig) -> dict:
+    """Graph node that searches the web for all sub-questions in parallel.
+
+    Concurrency across all users is bounded by the runtime's search semaphore. A
+    failed sub-question does not fail the node.
 
     Args:
         state: Current pipeline state containing `sub_questions`.
+        config: Run config carrying the shared runtime.
 
     Returns:
         A partial state update with `search_results`.
     """
+    runtime = get_runtime(config)
     sub_questions = state.get("sub_questions", [])
-    if not sub_questions:
-        return {"search_results": []}
-
-    tool = await _load_tool("github", "search_repositories")
-    if tool is None:
-        return {"search_results": []}
-
-    collected: list[SearchResult] = []
-    for sub_question in sub_questions:
-        github_query = _build_github_query(sub_question)
-        try:
-            raw = await tool.ainvoke({"query": github_query})
-        except Exception as exc:
-            logger.error("search_github.call_failed query=%r error=%s", github_query, exc)
-            continue
-        results = _parse_github_results(raw, sub_question)
-        logger.info("search_github.done query=%r results=%d", github_query, len(results))
-        collected.extend(results)
+    groups = await asyncio.gather(*(_search_web_one(runtime, q) for q in sub_questions))
+    collected = [result for group in groups for result in group]
+    logger.info("search_web.complete results=%d", len(collected))
     return {"search_results": collected}
 
 
-async def score_sources(state: ResearchState) -> dict:
+async def search_github(state: ResearchState, config: RunnableConfig) -> dict:
+    """Graph node that searches GitHub repositories for the main research topic.
+
+    Runs in parallel with planning and web search. Uses one query built from the
+    topic, since per-sub-question queries are too generic to match repositories.
+
+    Args:
+        state: Current pipeline state containing the user's `query`.
+        config: Run config carrying the shared runtime.
+
+    Returns:
+        A partial state update with `search_results`.
+    """
+    runtime = get_runtime(config)
+    query = state["query"]
+    github_query = _build_github_query(query)
+    try:
+        async with runtime.search_semaphore:
+            items = await github_search_repositories(
+                runtime.http, github_query, runtime.settings.github_results_per_query
+            )
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.error("search_github.call_failed query=%r error=%s", github_query, exc)
+        return {"search_results": []}
+
+    results = _github_to_results(items, query)[:MAX_GITHUB_RESULTS]
+    logger.info(
+        "search_github.done query=%r fetched=%d kept=%d", github_query, len(items), len(results)
+    )
+    return {"search_results": results}
+
+
+async def score_sources(state: ResearchState, config: RunnableConfig) -> dict:
     """Graph node that deduplicates results by URL and keeps the top sources.
 
     Args:
         state: Current pipeline state containing accumulated `search_results`.
+        config: Run config (unused, kept for a uniform node signature).
 
     Returns:
         A partial state update with `sources`, ranked by relevance score.
+
+    Raises:
+        AppError: If no usable source was retrieved.
     """
     raw_results = state.get("search_results", [])
     unique: dict[str, SearchResult] = {}
@@ -274,23 +228,10 @@ async def score_sources(state: ResearchState) -> dict:
     logger.info(
         "search.scored raw=%d unique=%d kept=%d", len(raw_results), len(unique), len(top_sources)
     )
+    if not top_sources:
+        raise AppError(
+            "No sources could be retrieved for this topic. Try rephrasing the query.",
+            status_code=502,
+            code="no_sources_found",
+        )
     return {"sources": top_sources}
-
-
-def build_research_graph():
-    """Builds and compiles the research graph.
-
-    Structure: search_web -> search_github -> score_sources -> END
-    """
-    graph = StateGraph(ResearchState)
-    graph.add_node("search_web", search_web)
-    graph.add_node("search_github", search_github)
-    graph.add_node("score_sources", score_sources)
-    graph.set_entry_point("search_web")
-    graph.add_edge("search_web", "search_github")
-    graph.add_edge("search_github", "score_sources")
-    graph.add_edge("score_sources", END)
-    return graph.compile()
-
-
-research_graph = build_research_graph()
