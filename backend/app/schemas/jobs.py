@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.chat import ChatReply
 from app.schemas.research import ResearchResponse
 
 
@@ -43,6 +44,7 @@ class JobRecord(BaseModel):
     finished_at: float | None = None
     events: list[JobEvent] = Field(default_factory=list)
     result: ResearchResponse | None = None
+    reply: ChatReply | None = None
     error: JobError | None = None
     task: asyncio.Task | None = None
     condition: asyncio.Condition
@@ -64,4 +66,5 @@ class JobResponse(BaseModel):
     finished_at: float | None = None
     events_count: int
     result: ResearchResponse | None = None
+    reply: ChatReply | None = None
     error: JobError | None = None

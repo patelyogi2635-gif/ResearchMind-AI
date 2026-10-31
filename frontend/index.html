@@ -130,6 +130,10 @@ td:first-child{font-weight:600;white-space:nowrap}
 .plain-report{white-space:pre-wrap;font-family:var(--sans)}
 .btn-link{background:none;border:none;color:var(--accent);cursor:pointer;font-weight:600;padding:0}
 .btn-link:hover{text-decoration:underline}
+.reply p{white-space:pre-wrap}
+.suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.suggest button{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;text-align:left;transition:border-color .15s}
+.suggest button:hover{border-color:var(--accent)}
 
 .composer{flex:none;padding:8px 16px calc(12px + env(safe-area-inset-bottom));background:var(--bg)}
 .composer-box{max-width:880px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:8px 8px 8px 16px;box-shadow:var(--shadow);transition:border-color .15s}
@@ -202,7 +206,7 @@ td:first-child{font-weight:600;white-space:nowrap}
   const POLL_INTERVAL_MS = 2000;
   const MAX_INPUT_HEIGHT = 160;
   const TERMINAL = new Set(["completed", "failed", "cancelled"]);
-  const EVENT_NAMES = ["job_queued", "job_started", "node_started", "node_completed", "job_completed", "job_failed", "job_cancelled"];
+  const EVENT_NAMES = ["job_queued", "job_started", "routed", "queue_wait", "research_started", "node_started", "node_completed", "job_completed", "job_failed", "job_cancelled"];
 
   const STEPS = [
     { key: "decompose_query", label: "Planning research questions" },
@@ -346,12 +350,22 @@ td:first-child{font-weight:600;white-space:nowrap}
 
   function renderError(message, query) {
     const retry = query ? el("button", { class: "btn-link", type: "button", text: "Try again", onclick: () => submitQuery(query) }) : null;
-    return assistantRow(el("div", { class: "card error" }, el("strong", { text: "Research failed" }), el("p", { text: message }), retry));
+    return assistantRow(el("div", { class: "card error" }, el("strong", { text: "Something went wrong" }), el("p", { text: message }), retry));
   }
 
   function renderCancelled(query) {
     const retry = query ? el("button", { class: "btn-link", type: "button", text: "Run it again", onclick: () => submitQuery(query) }) : null;
     return assistantRow(el("div", { class: "card muted-card" }, el("strong", { text: "Research stopped" }), el("p", { class: "muted", text: "The job was cancelled before it finished." }), retry));
+  }
+
+  const REPLY_SUGGESTION_INTENTS = new Set(["greeting", "off_topic", "unclear", "unsafe"]);
+
+  function renderReply(message) {
+    const suggestions = REPLY_SUGGESTION_INTENTS.has(message.intent)
+      ? el("div", { class: "suggest" }, EXAMPLES.slice(0, 2).map((example) =>
+          el("button", { type: "button", text: example.text, onclick: () => submitQuery(example.text) })))
+      : null;
+    return assistantRow(el("div", { class: "card reply" }, el("p", { text: message.text }), suggestions));
   }
 
   function stepDetail(data) {
@@ -363,7 +377,7 @@ td:first-child{font-weight:600;white-space:nowrap}
 
   function createProgress() {
     const stepRefs = {};
-    const list = el("ol", { class: "steps" });
+    const list = el("ol", { class: "steps hidden" });
     for (const step of STEPS) {
       const detail = el("span", { class: "step-detail" });
       const li = el("li", { class: "step pending" }, el("span", { class: "step-icon", "aria-hidden": "true" }), el("span", { text: step.label }), detail);
@@ -398,8 +412,15 @@ td:first-child{font-weight:600;white-space:nowrap}
     }
 
     function onEvent(name, data) {
-      if (name === "job_queued") status.textContent = "Queued — waiting for a free slot…";
-      else if (name === "job_started") status.textContent = "Researching…";
+      if (name === "job_queued") status.textContent = "Starting…";
+      else if (name === "job_started") status.textContent = "Understanding your request…";
+      else if (name === "routed") {
+        if (data.intent === "research") {
+          list.classList.remove("hidden");
+          status.textContent = "Researching…";
+        }
+      } else if (name === "queue_wait") status.textContent = "Waiting for a free research slot…";
+      else if (name === "research_started") status.textContent = "Researching…";
       else if (name === "node_started") {
         setStep(data.node, "running");
         status.textContent = `${STEP_LABELS[data.node] || "Working"}…`;
@@ -581,6 +602,7 @@ td:first-child{font-weight:600;white-space:nowrap}
   function renderMessage(message) {
     if (message.role === "user") return renderUser(message.text);
     if (message.status === "done" && message.result) return renderResult(message.result);
+    if (message.status === "reply") return renderReply(message);
     if (message.status === "cancelled") return renderCancelled(message.query);
     return renderError(message.error || "Something went wrong.", message.query);
   }
@@ -622,6 +644,17 @@ td:first-child{font-weight:600;white-space:nowrap}
     pushMessage({ role: "assistant", status: "done", result, query: ctx.job.query });
   }
 
+  function finalizeReply(reply) {
+    const ctx = endCurrent();
+    if (ctx) pushMessage({ role: "assistant", status: "reply", text: reply.text, intent: reply.intent, query: ctx.job.query });
+  }
+
+  function finalizeCompleted(payload) {
+    if (payload.result) finalizeSuccess(payload.result);
+    else if (payload.reply) finalizeReply(payload.reply);
+    else finalizeSuccess(null);
+  }
+
   function finalizeError(message) {
     const ctx = endCurrent();
     if (ctx) pushMessage({ role: "assistant", status: "error", error: message, query: ctx.job.query });
@@ -633,7 +666,7 @@ td:first-child{font-weight:600;white-space:nowrap}
   }
 
   function finalizeFromJob(job) {
-    if (job.status === "completed") finalizeSuccess(job.result);
+    if (job.status === "completed") finalizeCompleted(job);
     else if (job.status === "failed") finalizeError((job.error && job.error.message) || "Research failed.");
     else finalizeCancelled();
   }
@@ -642,7 +675,7 @@ td:first-child{font-weight:600;white-space:nowrap}
     if (current !== ctx) return;
     ctx.progress.onEvent(name, data);
     scrollToBottom();
-    if (name === "job_completed") finalizeSuccess(data.result);
+    if (name === "job_completed") finalizeCompleted(data);
     else if (name === "job_failed") finalizeError(data.message || "Research failed.");
     else if (name === "job_cancelled") finalizeCancelled();
   }

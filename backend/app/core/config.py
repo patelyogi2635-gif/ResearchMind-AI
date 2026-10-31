@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     max_stored_jobs: int = 200
     sse_keepalive_seconds: float = 15.0
 
+    router_model: str = "openai/gpt-oss-20b"
+    router_max_tokens: int = 1500
+    router_timeout_seconds: float = 15.0
+    router_reasoning_effort: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

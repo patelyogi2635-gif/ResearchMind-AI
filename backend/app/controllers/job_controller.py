@@ -8,7 +8,9 @@ from functools import partial
 from typing import Any
 
 from app.controllers.pipeline_controller import run_research
+from app.controllers.router_controller import build_reply, route_message
 from app.core.errors import AppError
+from app.schemas.chat import Intent
 from app.schemas.context import Runtime
 from app.schemas.jobs import (
     ACTIVE_STATUSES,
@@ -54,23 +56,54 @@ async def _finish(job: JobRecord, status: JobStatus, event: str, data: dict[str,
     await _publish(job, event, data, status=status)
 
 
+async def _run_pipeline(runtime: Runtime, job: JobRecord) -> ResearchResponse:
+    """Runs the research pipeline for a job inside the global concurrency limit.
+
+    Args:
+        runtime: Shared runtime.
+        job: The job to execute.
+
+    Returns:
+        The research response.
+
+    Raises:
+        asyncio.TimeoutError: If the pipeline exceeds its time limit.
+        AppError: If the pipeline fails.
+    """
+    if runtime.pipeline_semaphore.locked():
+        await _publish(job, "queue_wait", {})
+    async with runtime.pipeline_semaphore:
+        await _publish(job, "research_started", {"query": job.query})
+        return await asyncio.wait_for(
+            run_research(runtime, job.query, partial(_publish, job)),
+            timeout=runtime.settings.pipeline_timeout_seconds,
+        )
+
+
 async def _run_job(runtime: Runtime, job: JobRecord) -> None:
-    """Runs one research job inside the global pipeline concurrency limit.
+    """Routes a message and either replies directly or runs the research pipeline.
+
+    Greetings, off-topic and unsafe messages are answered immediately without
+    touching the pipeline. Only research requests wait for a pipeline slot.
 
     Args:
         runtime: Shared runtime.
         job: The job to execute.
     """
     try:
-        async with runtime.pipeline_semaphore:
-            job.started_at = time.time()
-            await _publish(
-                job, "job_started", {"job_id": job.id, "query": job.query}, status=JobStatus.RUNNING
-            )
-            job.result = await asyncio.wait_for(
-                run_research(runtime, job.query, partial(_publish, job)),
-                timeout=runtime.settings.pipeline_timeout_seconds,
-            )
+        job.started_at = time.time()
+        await _publish(
+            job, "job_started", {"job_id": job.id, "query": job.query}, status=JobStatus.RUNNING
+        )
+        decision = await route_message(runtime, job.query)
+        await _publish(job, "routed", {"intent": decision.intent.value})
+
+        if decision.intent == Intent.RESEARCH:
+            job.result = await _run_pipeline(runtime, job)
+            completed_data = {"job_id": job.id, "result": job.result.model_dump(mode="json")}
+        else:
+            job.reply = build_reply(decision)
+            completed_data = {"job_id": job.id, "reply": job.reply.model_dump(mode="json")}
     except asyncio.CancelledError:
         await _finish(job, JobStatus.CANCELLED, "job_cancelled", {"job_id": job.id})
         raise
@@ -90,12 +123,7 @@ async def _run_job(runtime: Runtime, job: JobRecord) -> None:
         await _finish(job, JobStatus.FAILED, "job_failed", job.error.model_dump())
     else:
         logger.info("job.completed job_id=%s", job.id)
-        await _finish(
-            job,
-            JobStatus.COMPLETED,
-            "job_completed",
-            {"job_id": job.id, "result": job.result.model_dump(mode="json") if job.result else None},
-        )
+        await _finish(job, JobStatus.COMPLETED, "job_completed", completed_data)
 
 
 def purge_expired_jobs(runtime: Runtime) -> int:
@@ -129,13 +157,13 @@ def purge_expired_jobs(runtime: Runtime) -> int:
 
 
 def submit_job(runtime: Runtime, query: str) -> JobRecord:
-    """Registers a research job and starts it in the background.
+    """Registers a message as a job and starts it in the background.
 
     Must be called from a running event loop.
 
     Args:
         runtime: Shared runtime.
-        query: The technology topic to evaluate.
+        query: The user's message.
 
     Returns:
         The queued job record.
@@ -216,18 +244,19 @@ async def _wait_until_finished(job: JobRecord) -> None:
 async def run_research_blocking(runtime: Runtime, query: str) -> ResearchResponse:
     """Runs a job and waits for its result, for clients that cannot poll or stream.
 
-    Goes through the same queue and concurrency limits as background jobs. If the
-    waiting request is cancelled, the underlying job is cancelled too.
+    Goes through the same router, queue and concurrency limits as background jobs.
+    If the waiting request is cancelled, the underlying job is cancelled too.
 
     Args:
         runtime: Shared runtime.
-        query: The technology topic to evaluate.
+        query: The user's message.
 
     Returns:
         The completed research response.
 
     Raises:
-        AppError: If the job is rejected, fails, times out or is cancelled.
+        AppError: If the job is rejected, fails, times out or is cancelled, or with
+            status 422 when the message was not a research request.
     """
     job = submit_job(runtime, query)
     try:
@@ -237,8 +266,11 @@ async def run_research_blocking(runtime: Runtime, query: str) -> ResearchRespons
             job.task.cancel()
         raise
 
-    if job.status == JobStatus.COMPLETED and job.result is not None:
-        return job.result
+    if job.status == JobStatus.COMPLETED:
+        if job.result is not None:
+            return job.result
+        if job.reply is not None:
+            raise AppError(job.reply.text, status_code=422, code="not_a_research_request")
     if job.error is not None:
         raise AppError(job.error.message, status_code=job.error.status_code, code=job.error.code)
     raise AppError("Research job was cancelled", status_code=409, code="job_cancelled")
@@ -325,7 +357,7 @@ def build_job_created(job: JobRecord, base_path: str) -> JobCreatedResponse:
 
 
 def build_job_response(job: JobRecord) -> JobResponse:
-    """Builds the public view of a job, including its result or error."""
+    """Builds the public view of a job, including its result, reply or error."""
     return JobResponse(
         job_id=job.id,
         status=job.status,
@@ -335,5 +367,6 @@ def build_job_response(job: JobRecord) -> JobResponse:
         finished_at=job.finished_at,
         events_count=len(job.events),
         result=job.result,
+        reply=job.reply,
         error=job.error,
     )
