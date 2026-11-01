@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from urllib.parse import urlparse
@@ -5,10 +6,18 @@ from urllib.parse import urlparse
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from app.controllers.chat_controller import stream_completion
 from app.core.errors import AppError
-from app.core.llm import get_llm
-from app.core.prompts import WRITER_JSON_INSTRUCTIONS, WRITER_SYSTEM, WRITER_USER
-from app.core.runtime import get_runtime
+from app.core.llm import MAX_RATE_LIMIT_WAIT_SECONDS, get_chat_llm, get_llm, rate_limit_delay
+from app.core.prompts import (
+    SUMMARY_SYSTEM,
+    SUMMARY_USER,
+    WRITER_JSON_INSTRUCTIONS,
+    WRITER_SUMMARY_NOTE,
+    WRITER_SYSTEM,
+    WRITER_USER,
+)
+from app.core.runtime import get_emit, get_runtime
 from app.schemas.research import Confidence, RDBrief
 from app.schemas.state import ResearchState, SearchResult
 
@@ -255,6 +264,42 @@ async def select_sources(state: ResearchState, config: RunnableConfig) -> dict:
     return {"sources": selected}
 
 
+async def stream_summary(state: ResearchState, config: RunnableConfig) -> dict:
+    """Graph node that streams a short executive summary while the brief is prepared.
+
+    The summary is shown to the reader token by token and then reused verbatim as
+    the brief's executive summary. It is optional: when streaming is disabled or
+    the model fails, the pipeline continues and the brief writes its own summary.
+
+    Args:
+        state: Current pipeline state with `query` and `sources`.
+        config: Run config carrying the shared runtime and the progress emitter.
+
+    Returns:
+        A partial state update with `summary`, empty when none was produced.
+    """
+    runtime = get_runtime(config)
+    if not runtime.settings.streaming_enabled:
+        return {"summary": ""}
+    messages = [
+        SystemMessage(content=SUMMARY_SYSTEM),
+        HumanMessage(
+            content=SUMMARY_USER.format(
+                query=state["query"],
+                sources_text=_format_sources_for_prompt(state.get("sources", [])),
+            )
+        ),
+    ]
+    try:
+        summary = await stream_completion(
+            runtime, get_chat_llm(), messages, get_emit(config), target="summary"
+        )
+    except Exception as exc:
+        logger.warning("writer.summary_failed error=%s", str(exc)[:ERROR_LOG_CHARS])
+        return {"summary": ""}
+    return {"summary": summary.strip()}
+
+
 async def synthesize_brief(state: ResearchState, config: RunnableConfig) -> dict:
     """Graph node that generates the structured R&D brief and its markdown form.
 
@@ -273,6 +318,8 @@ async def synthesize_brief(state: ResearchState, config: RunnableConfig) -> dict
     sources = state.get("sources", [])
     logger.info("writer.start sources=%d", len(sources))
 
+    summary = state.get("summary", "")
+    summary_note = WRITER_SUMMARY_NOTE.format(summary=summary) if summary else ""
     messages = [
         SystemMessage(
             content=WRITER_SYSTEM + "\n\n" + WRITER_JSON_INSTRUCTIONS.format(schema=BRIEF_SCHEMA_JSON)
@@ -283,6 +330,7 @@ async def synthesize_brief(state: ResearchState, config: RunnableConfig) -> dict
                 sub_questions_text="\n".join(f"- {q}" for q in state.get("sub_questions", [])),
                 sources_text=_format_sources_for_prompt(sources),
             )
+            + summary_note
         ),
     ]
     writer = get_llm(
@@ -290,18 +338,32 @@ async def synthesize_brief(state: ResearchState, config: RunnableConfig) -> dict
     ).with_structured_output(RDBrief, method="json_mode")
 
     brief: RDBrief | None = None
+    rate_limited = False
     for attempt in range(1, MAX_BRIEF_ATTEMPTS + 1):
         try:
             async with runtime.llm_semaphore:
                 brief = await writer.ainvoke(messages)
         except Exception as exc:
+            delay = rate_limit_delay(exc)
+            rate_limited = delay is not None
             logger.warning(
-                "writer.attempt_failed attempt=%d error=%s", attempt, str(exc)[:ERROR_LOG_CHARS]
+                "writer.attempt_failed attempt=%d rate_limited=%s error=%s",
+                attempt,
+                rate_limited,
+                str(exc)[:ERROR_LOG_CHARS],
             )
+            if delay is not None and attempt < MAX_BRIEF_ATTEMPTS:
+                await asyncio.sleep(min(delay, MAX_RATE_LIMIT_WAIT_SECONDS))
             continue
         if brief is not None:
             break
 
+    if brief is None and rate_limited:
+        raise AppError(
+            "The model is busy right now. Please try again in a few seconds.",
+            status_code=429,
+            code="llm_rate_limited",
+        )
     if brief is None:
         raise AppError(
             "Failed to generate a structured R&D brief",
@@ -310,6 +372,8 @@ async def synthesize_brief(state: ResearchState, config: RunnableConfig) -> dict
         )
 
     brief = cap_confidence(sanitize_citations(brief, len(sources)), sources)
+    if summary:
+        brief.executive_summary = summary
     report = render_brief_markdown(brief, sources)
     logger.info(
         "writer.done options=%d confidence=%s report_chars=%d",

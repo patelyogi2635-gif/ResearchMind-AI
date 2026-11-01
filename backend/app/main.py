@@ -9,35 +9,72 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logger import request_id_ctx, setup_logging
+from app.controllers.memory_controller import recover_interrupted_jobs
+from app.controllers.writer_controller import WRITER_MAX_TOKENS, WRITER_TEMPERATURE
+from app.core.llm import get_chat_llm, get_llm, get_router_llm
+from app.core.mongo import connect_mongo
 from app.core.runtime import close_runtime, create_runtime
-from app.routers import health, research
+from app.routers import conversations, health, research
 
 logger = logging.getLogger(__name__)
 
 APP_TITLE = "ResearchMind AI - R&D Assistant"
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Creates the shared runtime at startup and releases it at shutdown."""
+    """Creates every shared service once at startup and releases them at shutdown.
+
+    Each service logs when it is ready and when it is closed. Shutdown runs in
+    reverse order: running jobs first, then MongoDB, then the HTTP client.
+    """
+    started = time.perf_counter()
     settings = get_settings()
+    logger.info("startup.begin env=%s version=%s", settings.app_env, APP_VERSION)
+
     runtime = create_runtime(settings)
-    app.state.runtime = runtime
     logger.info(
-        "app.startup env=%s version=%s model=%s pipelines=%d searches=%d llm_calls=%d",
-        settings.app_env,
-        APP_VERSION,
+        "startup.http_client ready pool=%d keepalive=%d timeout=%.0fs",
+        settings.http_max_connections,
+        settings.http_max_keepalive_connections,
+        settings.http_timeout_seconds,
+    )
+
+    get_llm(temperature=0.3)
+    get_llm(temperature=WRITER_TEMPERATURE, max_tokens=WRITER_MAX_TOKENS)
+    get_router_llm()
+    get_chat_llm()
+    logger.info(
+        "startup.llm_clients ready writer=%s router=%s chat=%s streaming=%s",
         settings.llm_model,
+        settings.router_model,
+        settings.chat_model,
+        settings.streaming_enabled,
+    )
+    logger.info(
+        "startup.limits pipelines=%d searches=%d llm_calls=%d pending_jobs=%d",
         settings.max_concurrent_pipelines,
         settings.max_concurrent_searches,
         settings.max_concurrent_llm_calls,
+        settings.max_pending_jobs,
+    )
+
+    await connect_mongo(runtime)
+    await recover_interrupted_jobs(runtime)
+
+    app.state.runtime = runtime
+    logger.info(
+        "startup.ready took=%.2fs mongodb=%s",
+        time.perf_counter() - started,
+        "connected" if runtime.mongo_db is not None else "stateless",
     )
     try:
         yield
     finally:
+        logger.info("shutdown.begin running_jobs=%d", sum(1 for job in runtime.jobs.values() if job.task and not job.task.done()))
         await close_runtime(runtime)
-        logger.info("app.shutdown")
+        logger.info("shutdown.complete")
 
 
 async def request_context_middleware(request: Request, call_next):
@@ -89,6 +126,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix="/api", tags=["health"])
     app.include_router(research.router, prefix="/api", tags=["research"])
+    app.include_router(conversations.router, prefix="/api", tags=["conversations"])
     return app
 
 

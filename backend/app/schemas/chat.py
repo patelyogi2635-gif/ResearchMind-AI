@@ -21,14 +21,15 @@ def _coerce_category(value: Any) -> Any:
     return text if text in KNOWN_CATEGORIES else "other"
 
 
-def _coerce_reply(value: Any) -> Any:
-    """Turns a null reply into an empty string."""
+def _coerce_text(value: Any) -> Any:
+    """Turns a null text field into an empty string."""
     return "" if value is None else value
 
 
 class Intent(str, Enum):
     GREETING = "greeting"
     RESEARCH = "research"
+    FOLLOW_UP = "follow_up"
     OFF_TOPIC = "off_topic"
     UNSAFE = "unsafe"
     UNCLEAR = "unclear"
@@ -44,15 +45,19 @@ class UnsafeCategory(str, Enum):
 
 class RouteDecision(BaseModel):
     intent: Annotated[Intent, BeforeValidator(_normalize_intent)] = Field(
-        description="One of: greeting, research, off_topic, unsafe, unclear"
+        description="One of: greeting, research, follow_up, off_topic, unsafe, unclear"
     )
     unsafe_category: Annotated[UnsafeCategory, BeforeValidator(_coerce_category)] = Field(
         default=UnsafeCategory.NONE,
         description="Only for unsafe: prompt_injection, malicious_use, harmful_content or other. Otherwise none",
     )
-    reply: Annotated[str, BeforeValidator(_coerce_reply)] = Field(
+    standalone_query: Annotated[str, BeforeValidator(_coerce_text)] = Field(
         default="",
-        description="Short friendly reply for greeting, off_topic and unclear. Empty for research and unsafe",
+        description="For research: a complete, self-contained research topic. Otherwise empty",
+    )
+    reply: Annotated[str, BeforeValidator(_coerce_text)] = Field(
+        default="",
+        description="Short friendly reply for greeting, off_topic and unclear. Empty otherwise",
     )
 
 

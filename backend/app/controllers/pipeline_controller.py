@@ -1,6 +1,5 @@
 import logging
 import time
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 from langchain_core.runnables import RunnableConfig
@@ -8,26 +7,14 @@ from langgraph.graph import END, START, StateGraph
 
 from app.controllers.planner_controller import decompose_query
 from app.controllers.search_controller import score_sources, search_github, search_web
-from app.controllers.writer_controller import select_sources, synthesize_brief
+from app.controllers.writer_controller import select_sources, stream_summary, synthesize_brief
 from app.core.errors import AppError
+from app.core.runtime import EmitFn, get_emit
 from app.schemas.context import Runtime
 from app.schemas.research import ResearchResponse, SourceResponse
 from app.schemas.state import ResearchState
 
 logger = logging.getLogger(__name__)
-
-EmitFn = Callable[[str, dict[str, Any]], Awaitable[None]]
-
-
-async def _noop_emit(event: str, data: dict[str, Any]) -> None:
-    """Default emitter used when no progress listener is attached."""
-    return None
-
-
-def _get_emit(config: RunnableConfig) -> EmitFn:
-    """Returns the progress emitter from the run config, or a no-op."""
-    return (config.get("configurable") or {}).get("emit") or _noop_emit
-
 
 def _summarize_update(update: dict | None) -> dict[str, Any]:
     """Builds a small, client-safe summary of what a node produced."""
@@ -45,7 +32,7 @@ def _summarize_update(update: dict | None) -> dict[str, Any]:
     return summary
 
 
-def track_progress(name: str, node: Callable[[ResearchState, RunnableConfig], Awaitable[dict]]):
+def track_progress(name: str, node):
     """Wraps a graph node so it emits start and completion events with timing.
 
     Args:
@@ -57,7 +44,7 @@ def track_progress(name: str, node: Callable[[ResearchState, RunnableConfig], Aw
     """
 
     async def wrapped(state: ResearchState, config: RunnableConfig) -> dict:
-        emit = _get_emit(config)
+        emit = get_emit(config)
         await emit("node_started", {"node": name})
         started = time.perf_counter()
         update = await node(state, config)
@@ -80,7 +67,7 @@ def build_pipeline_graph():
 
     START -> decompose_query -> search_web ----\\
     START -> search_github --------------------+-> score_sources -> select_sources
-                                                   -> synthesize_brief -> END
+                                                   -> stream_summary -> synthesize_brief -> END
     """
     graph = StateGraph(ResearchState)
     graph.add_node("decompose_query", track_progress("decompose_query", decompose_query))
@@ -88,6 +75,7 @@ def build_pipeline_graph():
     graph.add_node("search_github", track_progress("search_github", search_github))
     graph.add_node("score_sources", track_progress("score_sources", score_sources))
     graph.add_node("select_sources", track_progress("select_sources", select_sources))
+    graph.add_node("stream_summary", track_progress("stream_summary", stream_summary))
     graph.add_node("synthesize_brief", track_progress("synthesize_brief", synthesize_brief))
 
     graph.add_edge(START, "decompose_query")
@@ -95,7 +83,8 @@ def build_pipeline_graph():
     graph.add_edge("decompose_query", "search_web")
     graph.add_edge(["search_web", "search_github"], "score_sources")
     graph.add_edge("score_sources", "select_sources")
-    graph.add_edge("select_sources", "synthesize_brief")
+    graph.add_edge("select_sources", "stream_summary")
+    graph.add_edge("stream_summary", "synthesize_brief")
     graph.add_edge("synthesize_brief", END)
     return graph.compile()
 
@@ -125,6 +114,7 @@ async def run_research(runtime: Runtime, query: str, emit: EmitFn) -> ResearchRe
         "sub_questions": [],
         "search_results": [],
         "sources": [],
+        "summary": "",
         "brief": None,
         "report": "",
     }

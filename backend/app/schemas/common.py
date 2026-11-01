@@ -25,3 +25,5 @@ class ReadinessResponse(BaseModel):
     queued_jobs: int
     running_jobs: int
     stored_jobs: int
+    mongodb: str
+    streaming: bool

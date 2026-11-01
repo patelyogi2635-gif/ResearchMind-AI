@@ -114,7 +114,7 @@ class RDBrief(BaseModel):
 class ResearchRequest(BaseModel):
     query: str = Field(
         ...,
-        min_length=10,
+        min_length=2,
         max_length=500,
         description="The technology topic or requirement to evaluate",
         json_schema_extra={

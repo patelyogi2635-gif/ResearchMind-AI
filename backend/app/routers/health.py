@@ -21,4 +21,4 @@ async def health_check() -> HealthResponse:
 )
 async def readiness(runtime: Runtime = Depends(get_app_runtime)) -> ReadinessResponse:
     """Readiness probe with queue and job counts. Does not call external providers."""
-    return get_readiness(runtime)
+    return await get_readiness(runtime)

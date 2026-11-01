@@ -1,6 +1,8 @@
 import asyncio
 
 import httpx
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.config import Settings
@@ -16,3 +18,5 @@ class Runtime(BaseModel):
     llm_semaphore: asyncio.Semaphore
     pipeline_semaphore: asyncio.Semaphore
     jobs: dict[str, JobRecord] = Field(default_factory=dict)
+    mongo_client: Any = None
+    mongo_db: Any = None

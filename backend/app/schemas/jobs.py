@@ -14,9 +14,12 @@ class JobStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    INTERRUPTED = "interrupted"
 
 
-TERMINAL_STATUSES = frozenset({JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED})
+TERMINAL_STATUSES = frozenset(
+    {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED, JobStatus.INTERRUPTED}
+)
 ACTIVE_STATUSES = frozenset({JobStatus.QUEUED, JobStatus.RUNNING})
 
 
@@ -38,11 +41,17 @@ class JobRecord(BaseModel):
 
     id: str
     query: str
+    client_id: str | None = None
+    conversation_id: str | None = None
+    user_message_id: str | None = None
+    request_id: str | None = None
+    research_query: str | None = None
     status: JobStatus = JobStatus.QUEUED
     created_at: float
     started_at: float | None = None
     finished_at: float | None = None
     events: list[JobEvent] = Field(default_factory=list)
+    stream_text: str = ""
     result: ResearchResponse | None = None
     reply: ChatReply | None = None
     error: JobError | None = None
@@ -55,12 +64,15 @@ class JobCreatedResponse(BaseModel):
     status: JobStatus
     status_url: str
     stream_url: str
+    conversation_id: str | None = None
+    message_id: str | None = None
 
 
 class JobResponse(BaseModel):
     job_id: str
     status: JobStatus
     query: str
+    conversation_id: str | None = None
     created_at: float
     started_at: float | None = None
     finished_at: float | None = None

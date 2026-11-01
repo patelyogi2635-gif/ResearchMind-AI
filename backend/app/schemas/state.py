@@ -18,5 +18,6 @@ class ResearchState(TypedDict):
     sub_questions: list[str]
     search_results: Annotated[list[SearchResult], operator.add]
     sources: list[SearchResult]
+    summary: str
     brief: RDBrief | None
     report: str

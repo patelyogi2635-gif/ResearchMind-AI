@@ -49,6 +49,25 @@ class Settings(BaseSettings):
     router_timeout_seconds: float = 15.0
     router_reasoning_effort: str = ""
 
+    chat_model: str = "openai/gpt-oss-20b"
+    chat_max_tokens: int = 1200
+    chat_timeout_seconds: float = 45.0
+    chat_reasoning_effort: str = ""
+
+    streaming_enabled: bool = True
+    stream_chunk_chars: int = 16
+    stream_flush_seconds: float = 0.08
+    max_stream_chars: int = 20000
+
+    mongodb_enabled: bool = True
+    mongodb_required: bool = False
+    mongodb_uri: str = "mongodb://localhost:27017"
+    mongodb_db: str = "researchmind"
+    mongodb_timeout_ms: int = 3000
+    mongodb_write_attempts: int = 3
+    mongodb_retention_days: int = 30
+    history_turns: int = 6
+
 
 @lru_cache
 def get_settings() -> Settings:

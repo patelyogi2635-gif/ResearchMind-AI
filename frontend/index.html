@@ -84,6 +84,8 @@ a{color:inherit}
 .questions{list-style:none;margin-top:14px;padding:10px 12px;background:var(--surface-2);border-radius:10px;font-size:13px;color:var(--muted);display:grid;gap:4px}
 .questions li::before{content:"› ";color:var(--accent);font-weight:700}
 .progress-note{margin-top:10px;font-size:13px;color:var(--warn)}
+.stream-label{margin-top:14px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.stream{margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 .toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}
@@ -131,9 +133,6 @@ td:first-child{font-weight:600;white-space:nowrap}
 .btn-link{background:none;border:none;color:var(--accent);cursor:pointer;font-weight:600;padding:0}
 .btn-link:hover{text-decoration:underline}
 .reply p{white-space:pre-wrap}
-.suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.suggest button{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;text-align:left;transition:border-color .15s}
-.suggest button:hover{border-color:var(--accent)}
 
 .composer{flex:none;padding:8px 16px calc(12px + env(safe-area-inset-bottom));background:var(--bg)}
 .composer-box{max-width:880px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:8px 8px 8px 16px;box-shadow:var(--shadow);transition:border-color .15s}
@@ -198,6 +197,8 @@ td:first-child{font-weight:600;white-space:nowrap}
 
   const PROD_API = "https://researchmind-ai-production.up.railway.app";
   const STORE_KEY = "researchmind.chat.v1";
+  const CLIENT_KEY = "researchmind.client";
+  const HISTORY_LIMIT = 50;
   const MAX_STORED_MESSAGES = 12;
   const MIN_QUERY_LENGTH = 10;
   const MAX_QUERY_LENGTH = 500;
@@ -205,8 +206,8 @@ td:first-child{font-weight:600;white-space:nowrap}
   const STATUS_REFRESH_MS = 15000;
   const POLL_INTERVAL_MS = 2000;
   const MAX_INPUT_HEIGHT = 160;
-  const TERMINAL = new Set(["completed", "failed", "cancelled"]);
-  const EVENT_NAMES = ["job_queued", "job_started", "routed", "queue_wait", "research_started", "node_started", "node_completed", "job_completed", "job_failed", "job_cancelled"];
+  const TERMINAL = new Set(["completed", "failed", "cancelled", "interrupted"]);
+  const EVENT_NAMES = ["job_queued", "job_started", "routed", "queue_wait", "research_started", "node_started", "node_completed", "token", "job_completed", "job_failed", "job_cancelled"];
 
   const STEPS = [
     { key: "decompose_query", label: "Planning research questions" },
@@ -214,6 +215,7 @@ td:first-child{font-weight:600;white-space:nowrap}
     { key: "search_github", label: "Searching GitHub" },
     { key: "score_sources", label: "Ranking sources" },
     { key: "select_sources", label: "Selecting evidence" },
+    { key: "stream_summary", label: "Summarizing findings" },
     { key: "synthesize_brief", label: "Writing the R&D brief" },
   ];
   const STEP_LABELS = Object.fromEntries(STEPS.map((step) => [step.key, step.label]));
@@ -249,6 +251,24 @@ td:first-child{font-weight:600;white-space:nowrap}
     return isLocal ? "http://127.0.0.1:8000" : PROD_API;
   }
   const API = resolveApiBase();
+
+  function loadClientId() {
+    try {
+      let id = localStorage.getItem(CLIENT_KEY);
+      if (!id || !/^[A-Za-z0-9_-]{16,64}$/.test(id)) {
+        id = uid().replace(/-/g, "");
+        localStorage.setItem(CLIENT_KEY, id);
+      }
+      return id;
+    } catch (error) {
+      return uid().replace(/-/g, "");
+    }
+  }
+  const CLIENT_ID = loadClientId();
+
+  function apiFetch(path, options = {}) {
+    return fetch(`${API}${path}`, { ...options, headers: { "X-Client-Id": CLIENT_ID, ...(options.headers || {}) } });
+  }
 
   function el(tag, props, ...children) {
     const node = document.createElement(tag);
@@ -298,18 +318,18 @@ td:first-child{font-weight:600;white-space:nowrap}
   function loadState() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-      if (raw && Array.isArray(raw.messages)) return { messages: raw.messages, active: raw.active || null };
+      if (raw && Array.isArray(raw.messages)) return { messages: raw.messages, active: raw.active || null, conversationId: raw.conversationId || null };
     } catch (error) {
       console.warn("Could not read the saved chat", error);
     }
-    return { messages: [], active: null };
+    return { messages: [], active: null, conversationId: null };
   }
 
   function saveState() {
     const messages = state.messages.slice(-MAX_STORED_MESSAGES);
     for (;;) {
       try {
-        localStorage.setItem(STORE_KEY, JSON.stringify({ messages, active: state.active }));
+        localStorage.setItem(STORE_KEY, JSON.stringify({ messages, active: state.active, conversationId: state.conversationId }));
         return;
       } catch (error) {
         if (messages.length === 0) return;
@@ -323,7 +343,7 @@ td:first-child{font-weight:600;white-space:nowrap}
   }
 
   function scrollToBottom(force = false) {
-    if (force || stickToBottom) threadEl.scrollTo({ top: threadEl.scrollHeight, behavior: "smooth" });
+    if (force || stickToBottom) threadEl.scrollTo({ top: threadEl.scrollHeight, behavior: force ? "smooth" : "auto" });
   }
 
   threadEl.addEventListener("scroll", () => {
@@ -358,14 +378,8 @@ td:first-child{font-weight:600;white-space:nowrap}
     return assistantRow(el("div", { class: "card muted-card" }, el("strong", { text: "Research stopped" }), el("p", { class: "muted", text: "The job was cancelled before it finished." }), retry));
   }
 
-  const REPLY_SUGGESTION_INTENTS = new Set(["greeting", "off_topic", "unclear", "unsafe"]);
-
   function renderReply(message) {
-    const suggestions = REPLY_SUGGESTION_INTENTS.has(message.intent)
-      ? el("div", { class: "suggest" }, EXAMPLES.slice(0, 2).map((example) =>
-          el("button", { type: "button", text: example.text, onclick: () => submitQuery(example.text) })))
-      : null;
-    return assistantRow(el("div", { class: "card reply" }, el("p", { text: message.text }), suggestions));
+    return assistantRow(el("div", { class: "card reply" }, el("p", { text: message.text })));
   }
 
   function stepDetail(data) {
@@ -388,6 +402,8 @@ td:first-child{font-weight:600;white-space:nowrap}
     const elapsed = el("span", { class: "elapsed", text: "0s" });
     const questions = el("ul", { class: "questions hidden" });
     const note = el("div", { class: "progress-note hidden", role: "status" });
+    const streamLabel = el("div", { class: "stream-label hidden", text: "Summary" });
+    const streamText = el("p", { class: "stream hidden" });
     const startedAt = Date.now();
     const timer = setInterval(() => {
       elapsed.textContent = `${Math.floor((Date.now() - startedAt) / 1000)}s`;
@@ -396,7 +412,7 @@ td:first-child{font-weight:600;white-space:nowrap}
     const root = assistantRow(
       el("div", { class: "card" },
         el("div", { class: "progress-head" }, el("span", { class: "spinner", "aria-hidden": "true" }), status, elapsed),
-        list, questions, note)
+        list, streamLabel, streamText, questions, note)
     );
 
     function setStep(key, stepState, detailText) {
@@ -411,6 +427,14 @@ td:first-child{font-weight:600;white-space:nowrap}
       questions.classList.remove("hidden");
     }
 
+    function appendToken(data) {
+      if (streamText.classList.contains("hidden")) {
+        streamText.classList.remove("hidden");
+        if (data.target === "summary") streamLabel.classList.remove("hidden");
+      }
+      streamText.textContent += data.text || "";
+    }
+
     function onEvent(name, data) {
       if (name === "job_queued") status.textContent = "Starting…";
       else if (name === "job_started") status.textContent = "Understanding your request…";
@@ -418,9 +442,10 @@ td:first-child{font-weight:600;white-space:nowrap}
         if (data.intent === "research") {
           list.classList.remove("hidden");
           status.textContent = "Researching…";
-        }
+        } else if (data.intent === "follow_up") status.textContent = "Thinking…";
       } else if (name === "queue_wait") status.textContent = "Waiting for a free research slot…";
       else if (name === "research_started") status.textContent = "Researching…";
+      else if (name === "token") appendToken(data);
       else if (name === "node_started") {
         setStep(data.node, "running");
         status.textContent = `${STEP_LABELS[data.node] || "Working"}…`;
@@ -638,15 +663,15 @@ td:first-child{font-weight:600;white-space:nowrap}
     const ctx = endCurrent();
     if (!ctx) return;
     if (!result) {
-      pushMessage({ role: "assistant", status: "error", error: "The server finished without a result.", query: ctx.job.query });
+      pushMessage({ role: "assistant", status: "error", error: "The server finished without a result.", query: ctx.job.query, jobId: ctx.job.job_id });
       return;
     }
-    pushMessage({ role: "assistant", status: "done", result, query: ctx.job.query });
+    pushMessage({ role: "assistant", status: "done", result, query: ctx.job.query, jobId: ctx.job.job_id });
   }
 
   function finalizeReply(reply) {
     const ctx = endCurrent();
-    if (ctx) pushMessage({ role: "assistant", status: "reply", text: reply.text, intent: reply.intent, query: ctx.job.query });
+    if (ctx) pushMessage({ role: "assistant", status: "reply", text: reply.text, intent: reply.intent, query: ctx.job.query, jobId: ctx.job.job_id });
   }
 
   function finalizeCompleted(payload) {
@@ -657,17 +682,17 @@ td:first-child{font-weight:600;white-space:nowrap}
 
   function finalizeError(message) {
     const ctx = endCurrent();
-    if (ctx) pushMessage({ role: "assistant", status: "error", error: message, query: ctx.job.query });
+    if (ctx) pushMessage({ role: "assistant", status: "error", error: message, query: ctx.job.query, jobId: ctx.job.job_id });
   }
 
   function finalizeCancelled() {
     const ctx = endCurrent();
-    if (ctx) pushMessage({ role: "assistant", status: "cancelled", query: ctx.job.query });
+    if (ctx) pushMessage({ role: "assistant", status: "cancelled", query: ctx.job.query, jobId: ctx.job.job_id });
   }
 
   function finalizeFromJob(job) {
     if (job.status === "completed") finalizeCompleted(job);
-    else if (job.status === "failed") finalizeError((job.error && job.error.message) || "Research failed.");
+    else if (job.status === "failed" || job.status === "interrupted") finalizeError((job.error && job.error.message) || "Research failed.");
     else finalizeCancelled();
   }
 
@@ -685,7 +710,7 @@ td:first-child{font-weight:600;white-space:nowrap}
     ctx.pollTimer = setInterval(async () => {
       if (current !== ctx) return;
       try {
-        const res = await fetch(`${API}${ctx.job.status_url}`);
+        const res = await apiFetch(ctx.job.status_url);
         if (res.status === 404) {
           finalizeError("The research job expired or the server restarted. Please ask again.");
           return;
@@ -706,7 +731,7 @@ td:first-child{font-weight:600;white-space:nowrap}
   }
 
   function openStream(ctx) {
-    const es = new EventSource(`${API}${ctx.job.stream_url}`);
+    const es = new EventSource(`${API}${ctx.job.stream_url}?client_id=${CLIENT_ID}`);
     ctx.es = es;
     for (const name of EVENT_NAMES) {
       es.addEventListener(name, (event) => handleJobEvent(ctx, name, parseData(event.data)));
@@ -720,10 +745,10 @@ td:first-child{font-weight:600;white-space:nowrap}
   }
 
   async function createJob(query) {
-    const res = await fetch(`${API}/api/research/jobs`, {
+    const res = await apiFetch("/api/research/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, conversation_id: state.conversationId }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
@@ -750,6 +775,7 @@ td:first-child{font-weight:600;white-space:nowrap}
       return;
     }
     starting = false;
+    state.conversationId = job.conversation_id || null;
     state.active = { job_id: job.job_id, status_url: job.status_url, stream_url: job.stream_url, query };
     saveState();
     openStream(beginJob(progress, state.active));
@@ -759,7 +785,7 @@ td:first-child{font-weight:600;white-space:nowrap}
     const ctx = current;
     if (!ctx) return;
     try {
-      const res = await fetch(`${API}${ctx.job.status_url}`, { method: "DELETE" });
+      const res = await apiFetch(ctx.job.status_url, { method: "DELETE" });
       if (res.ok) {
         const job = await res.json();
         if (current === ctx && TERMINAL.has(job.status)) finalizeFromJob(job);
@@ -772,11 +798,16 @@ td:first-child{font-weight:600;white-space:nowrap}
   async function resumeActive() {
     const active = state.active;
     if (!active) return;
+    if (state.messages.some((message) => message.role === "assistant" && message.jobId === active.job_id)) {
+      state.active = null;
+      saveState();
+      return;
+    }
     const progress = createProgress();
     mount(progress.root, true);
     let job;
     try {
-      const res = await fetch(`${API}${active.status_url}`);
+      const res = await apiFetch(active.status_url);
       if (res.status === 404) throw new Error("The previous research job expired or the server restarted. Please ask again.");
       job = await res.json();
     } catch (error) {
@@ -795,13 +826,13 @@ td:first-child{font-weight:600;white-space:nowrap}
     if (current) {
       const ctx = current;
       try {
-        await fetch(`${API}${ctx.job.status_url}`, { method: "DELETE" });
+        await apiFetch(ctx.job.status_url, { method: "DELETE" });
       } catch (error) {
         console.warn("Could not cancel the running job", error);
       }
       endCurrent();
     }
-    state = { messages: [], active: null };
+    state = { messages: [], active: null, conversationId: null };
     saveState();
     messagesEl.replaceChildren();
     updateWelcome();
@@ -871,8 +902,37 @@ td:first-child{font-weight:600;white-space:nowrap}
     }
   }
 
-  function init() {
+  function toLocalMessage(item) {
+    const base = { id: item.message_id, jobId: item.job_id || null };
+    if (item.role === "user") return { ...base, role: "user", text: item.text };
+    const assistant = { ...base, role: "assistant" };
+    if (item.kind === "research" && item.result) return { ...assistant, status: "done", result: item.result, query: item.result.query };
+    if (item.kind === "reply") return { ...assistant, status: "reply", text: item.text, intent: item.intent };
+    if (item.kind === "cancelled") return { ...assistant, status: "cancelled" };
+    return { ...assistant, status: "error", error: (item.error && item.error.message) || item.text || "Something went wrong." };
+  }
+
+  async function loadHistory() {
+    if (!state.conversationId) return;
+    try {
+      const res = await apiFetch(`/api/conversations/${encodeURIComponent(state.conversationId)}?limit=${HISTORY_LIMIT}`);
+      if (res.status === 404) {
+        state.conversationId = null;
+        saveState();
+        return;
+      }
+      if (!res.ok) return;
+      const data = await res.json();
+      state.messages = data.messages.map(toLocalMessage);
+      saveState();
+    } catch (error) {
+      console.warn("Could not load the conversation history", error);
+    }
+  }
+
+  async function init() {
     renderExamples();
+    await loadHistory();
     for (const message of state.messages) messagesEl.append(renderMessage(message));
     updateWelcome();
     threadEl.scrollTop = threadEl.scrollHeight;
