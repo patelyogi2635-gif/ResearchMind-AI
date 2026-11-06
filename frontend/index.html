@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <title>ResearchMind AI — R&amp;D Assistant</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,67 +11,99 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#F8F7F4;--surface:#FFFFFF;--surface-2:#F1EFEA;--ink:#1B2B4B;--muted:#667189;--line:#E8E4DC;
-  --accent:#E8823A;--accent-ink:#FFFFFF;--accent-soft:#FDF0E6;
-  --user-bg:#1B2B4B;--user-ink:#FFFFFF;
-  --ok:#2F7D5B;--ok-soft:#EEF4F2;--warn:#A8620F;--warn-soft:#FDF0E6;--bad:#D95F43;--bad-soft:#FDF0EE;
+  color-scheme:light;
+  --bg:#FBFAF8;--surface:#FFFFFF;--surface-2:#F4F1EC;--surface-3:#ECE7DF;--sidebar:#F6F3EE;
+  --ink:#1F1D1A;--muted:#6D6861;--line:#E7E2D9;
+  --accent:#EA7A2B;--accent-hover:#D96A1E;--accent-ink:#FFFFFF;--accent-text:#BF5A10;--accent-soft:#FFF1E4;--accent-line:#F6C9A2;
+  --user-bg:#F0EBE2;--user-ink:#1F1D1A;
+  --ok:#2E7D5B;--ok-soft:#E8F4EE;--warn:#9A5B0C;--warn-soft:#FFF3DC;--bad:#C5432A;--bad-soft:#FDECE8;
   --serif:'DM Serif Display',Georgia,serif;--sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
-  --radius:14px;--shadow:0 1px 2px rgba(27,43,75,.06),0 6px 20px rgba(27,43,75,.07);
-}
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#0E1424;--surface:#151D33;--surface-2:#1C2540;--ink:#E8ECF5;--muted:#9AA6BF;--line:#263253;
-    --accent:#F29A5A;--accent-ink:#1A1206;--accent-soft:#33261A;
-    --user-bg:#2A3A66;--user-ink:#FFFFFF;
-    --ok:#6FCF9F;--ok-soft:#12301F;--warn:#F2B45A;--warn-soft:#33270F;--bad:#F08A73;--bad-soft:#3A1B16;
-    --shadow:0 1px 2px rgba(0,0,0,.4);
-  }
+  --radius:14px;--shadow:0 1px 2px rgba(31,29,26,.05),0 8px 24px rgba(31,29,26,.06);
+  --sidebar-w:288px;
 }
 html,body{height:100%}
 body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
 button,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
 a{color:inherit}
 .hidden{display:none!important}
+.spacer{flex:1}
+.muted{color:var(--muted)}
 
-.app{display:flex;flex-direction:column;height:100vh;height:100dvh}
-.topbar{flex:none;border-bottom:1px solid var(--line);background:var(--bg);padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top))}
-.topbar-inner{max-width:880px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.shell{display:flex;height:100vh;height:100dvh;overflow:hidden}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+
+.sidebar{flex:none;width:0;overflow:hidden;visibility:hidden;background:var(--sidebar);border-right:1px solid transparent;transition:width .2s ease,visibility .2s}
+body.sidebar-open .sidebar{width:var(--sidebar-w);visibility:visible;border-right-color:var(--line)}
+.sidebar-inner{width:var(--sidebar-w);height:100%;display:flex;flex-direction:column;padding:14px 12px 10px;padding-top:calc(14px + env(safe-area-inset-top))}
+.sidebar-head{display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px}
+.sidebar-title{font-family:var(--serif);font-size:20px}
+.new-chat-btn{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--accent-text);font-weight:600;font-size:14px;transition:background .15s}
+.new-chat-btn:hover{background:#FFE6D1}
+.chat-list{flex:1;overflow-y:auto;margin:12px -4px 0;padding:0 4px;display:flex;flex-direction:column;gap:2px}
+.group-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:12px 8px 4px}
+.list-note{color:var(--muted);font-size:13px;padding:12px 8px}
+.chat-item{display:flex;align-items:center;gap:2px;border-radius:10px;position:relative}
+.chat-item:hover{background:var(--surface-3)}
+.chat-item.active{background:var(--accent-soft)}
+.chat-open{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:none;border:none;text-align:left;padding:9px 10px;border-radius:10px;font-size:14px}
+.chat-item.active .chat-open{font-weight:600}
+.chat-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-item .danger{opacity:0;flex:none}
+.chat-item:hover .danger,.chat-item:focus-within .danger{opacity:1}
+@media (hover:none){.chat-item .danger{opacity:1}}
+.confirm{display:flex;gap:6px;padding-right:6px}
+.confirm button{border-radius:8px;border:1px solid var(--line);background:var(--surface);padding:4px 10px;font-size:12px;font-weight:600}
+.confirm .confirm-yes{background:var(--bad);border-color:var(--bad);color:#fff}
+.load-more{margin:8px 4px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:13px;font-weight:500}
+.load-more:hover{border-color:var(--accent)}
+.sidebar-foot{font-size:11.5px;color:var(--muted);padding:10px 8px 0;border-top:1px solid var(--line);margin-top:8px}
+.backdrop{display:none}
+
+.icon-btn{flex:none;width:36px;height:36px;border-radius:10px;border:none;background:transparent;color:var(--ink);display:grid;place-items:center;transition:background .15s}
+.icon-btn:hover{background:var(--surface-3)}
+.icon-btn.danger:hover{background:var(--bad-soft);color:var(--bad)}
+
+.topbar{flex:none;border-bottom:1px solid var(--line);background:var(--bg);padding:8px 14px;padding-top:calc(8px + env(safe-area-inset-top))}
+.topbar-inner{display:flex;align-items:center;gap:10px}
 .brand{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-size:20px;white-space:nowrap}
 .brand-mark{width:30px;height:30px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--sans);font-weight:700;font-size:12px}
 .brand small{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:500;margin-left:2px}
-.spacer{flex:1}
 .pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--muted);padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
 .pill.online .dot{background:var(--ok)}
 .pill.offline .dot{background:var(--bad)}
-.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;transition:background .15s}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);padding:6px 12px;border-radius:9px;font-size:13px;font-weight:500;transition:background .15s}
 .btn-ghost:hover{background:var(--surface-2)}
 
 .thread{flex:1;overflow-y:auto;overscroll-behavior:contain}
-.thread-inner{max-width:880px;margin:0 auto;padding:24px 16px 8px}
+.thread-inner{max-width:820px;margin:0 auto;padding:24px 16px 8px}
 
 .welcome{text-align:center;padding:48px 8px 24px}
 .welcome h1{font-family:var(--serif);font-weight:400;font-size:clamp(28px,5vw,42px);line-height:1.15;margin-bottom:12px}
 .welcome h1 em{color:var(--accent)}
 .welcome p{color:var(--muted);max-width:520px;margin:0 auto 28px}
 .examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;text-align:left}
-.example{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;font-size:14px;line-height:1.45;text-align:left;transition:border-color .15s,transform .15s}
+.example{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.45;text-align:left;transition:border-color .15s,transform .15s}
 .example:hover{border-color:var(--accent);transform:translateY(-1px)}
-.example span{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.example span{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-text);margin-bottom:4px}
 .stack{margin-top:26px;font-size:12px;color:var(--muted)}
 
 .msg{display:flex;gap:12px;margin-bottom:20px}
 .msg.user{justify-content:flex-end}
-.bubble{background:var(--user-bg);color:var(--user-ink);padding:10px 15px;border-radius:16px 16px 4px 16px;max-width:82%;white-space:pre-wrap;overflow-wrap:anywhere}
+.bubble{background:var(--user-bg);color:var(--user-ink);padding:10px 16px;border-radius:18px 18px 4px 18px;max-width:82%;white-space:pre-wrap;overflow-wrap:anywhere}
 .avatar{flex:none;width:32px;height:32px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:11px;margin-top:2px}
 .card{flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
 .card.error{border-color:var(--bad);background:var(--bad-soft)}
 .card.error strong{color:var(--bad)}
 .card.error p,.card.muted-card p{margin:6px 0 10px}
+.reply p{white-space:pre-wrap}
+.load-earlier{display:block;margin:0 auto 18px}
 
 .progress-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-weight:500}
 .elapsed{margin-left:auto;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
+.spinner.small{width:12px;height:12px;border-width:2px}
 .steps{list-style:none;display:grid;gap:8px}
 .step{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
 .step-icon{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none;display:grid;place-items:center;font-size:11px;font-weight:700;line-height:1}
@@ -79,12 +111,12 @@ a{color:inherit}
 .step.running{color:var(--ink)}
 .step.running .step-icon{border-top-color:var(--accent);animation:spin .8s linear infinite}
 .step.done{color:var(--ink)}
-.step.done .step-icon{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.step.done .step-icon{background:var(--ok);border-color:var(--ok);color:#fff}
 .step.done .step-icon::after{content:"✓"}
 .questions{list-style:none;margin-top:14px;padding:10px 12px;background:var(--surface-2);border-radius:10px;font-size:13px;color:var(--muted);display:grid;gap:4px}
 .questions li::before{content:"› ";color:var(--accent);font-weight:700}
 .progress-note{margin-top:10px;font-size:13px;color:var(--warn)}
-.stream-label{margin-top:14px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.stream-label{margin-top:14px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-text)}
 .stream{margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -96,8 +128,8 @@ a{color:inherit}
 .chip.low,.chip.emerging{background:var(--bad-soft);color:var(--bad)}
 .brief-title{font-family:var(--serif);font-weight:400;font-size:24px;line-height:1.25;margin-bottom:8px}
 .summary{margin-bottom:14px}
-.recommend{background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:12px}
-.recommend-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.recommend{background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.recommend-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-text);margin-bottom:4px}
 .recommend-head{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px}
 .recommend-choice{font-size:18px}
 .recommend p{margin-bottom:6px}
@@ -111,12 +143,11 @@ a{color:inherit}
 .options{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
 .option{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--bg)}
 .option-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px}
-.muted{color:var(--muted)}
 .pros,.cons{list-style:none;margin-top:8px;font-size:14px;display:grid;gap:3px}
 .pros li::before{content:"+ ";color:var(--ok);font-weight:700}
 .cons li::before{content:"− ";color:var(--bad);font-weight:700}
 .cites{white-space:nowrap}
-.cite{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 4px;margin-left:3px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;text-decoration:none}
+.cite{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 4px;margin-left:3px;border-radius:5px;background:var(--accent-soft);color:var(--accent-text);font-size:11px;font-weight:700;text-decoration:none}
 a.cite:hover{background:var(--accent);color:var(--accent-ink)}
 .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
 table{border-collapse:collapse;width:100%;font-size:13.5px}
@@ -130,65 +161,112 @@ td:first-child{font-weight:600;white-space:nowrap}
 .sources .cite{margin-left:0}
 .sources a{text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
 .plain-report{white-space:pre-wrap;font-family:var(--sans)}
-.btn-link{background:none;border:none;color:var(--accent);cursor:pointer;font-weight:600;padding:0}
+.btn-link{background:none;border:none;color:var(--accent-text);font-weight:600;padding:0}
 .btn-link:hover{text-decoration:underline}
-.reply p{white-space:pre-wrap}
 
-.composer{flex:none;padding:8px 16px calc(12px + env(safe-area-inset-bottom));background:var(--bg)}
-.composer-box{max-width:880px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:8px 8px 8px 16px;box-shadow:var(--shadow);transition:border-color .15s}
-.composer-box:focus-within{border-color:var(--accent)}
-#input{flex:1;border:none;outline:none;background:transparent;resize:none;max-height:160px;min-height:26px;padding:6px 0;line-height:1.5}
+.composer{flex:none;padding:6px 16px calc(12px + env(safe-area-inset-bottom));background:var(--bg)}
+.composer-card{max-width:820px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:28px;padding:16px 14px 12px 20px;box-shadow:var(--shadow);transition:border-color .15s,box-shadow .15s}
+.composer-card:focus-within{border-color:var(--accent-line);box-shadow:0 0 0 3px rgba(234,122,43,.14),var(--shadow)}
+#input{display:block;width:100%;border:none;outline:none;background:transparent;resize:none;max-height:160px;min-height:28px;padding:0;font-size:16px;line-height:1.5}
 #input::placeholder{color:var(--muted)}
-#send{flex:none;width:40px;height:40px;border-radius:12px;border:none;background:var(--accent);color:var(--accent-ink);font-size:18px;font-weight:700;cursor:pointer;display:grid;place-items:center;transition:transform .15s}
-#send:hover{transform:scale(1.05)}
+.composer-row{display:flex;align-items:center;gap:10px;margin-top:14px}
+.circle-btn{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);display:grid;place-items:center;transition:background .15s}
+.circle-btn:hover{background:var(--surface-3)}
+.mode-pill{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 18px;border-radius:999px;background:var(--surface-2);font-size:14px;font-weight:500;white-space:nowrap}
+.mode-pill .dot{background:var(--accent)}
+.counter{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+#send{flex:none;width:46px;height:46px;border-radius:50%;border:none;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;transition:background .15s,transform .15s}
+#send:hover{background:var(--accent-hover);transform:scale(1.04)}
 #send.stop{background:var(--ink);color:var(--bg)}
-.hint-row{max-width:880px;margin:6px auto 0;display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--muted);min-height:18px}
-#hint{color:var(--bad)}
-.foot{max-width:880px;margin:2px auto 0;text-align:center;font-size:11.5px;color:var(--muted)}
+.menu-wrap{position:relative}
+.menu{position:absolute;bottom:calc(100% + 10px);left:0;width:min(360px,78vw);background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:8px;z-index:10}
+.menu-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 10px 4px}
+.menu-item{display:block;width:100%;text-align:left;background:none;border:none;border-radius:10px;padding:8px 10px;font-size:14px;line-height:1.4}
+.menu-item:hover{background:var(--accent-soft)}
+.menu-tag{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-text)}
+.hint-row{max-width:820px;margin:6px auto 0;font-size:12px;color:var(--bad);min-height:16px;padding:0 8px}
+.foot{max-width:820px;margin:2px auto 0;text-align:center;font-size:11.5px;color:var(--muted)}
 .foot a{text-decoration:none;border-bottom:1px solid var(--line)}
-.foot a:hover{color:var(--accent)}
+.foot a:hover{color:var(--accent-text)}
 
+.toast{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;box-shadow:var(--shadow);z-index:50;max-width:90vw}
+
+@media (max-width:899px){
+  .sidebar{position:fixed;top:0;bottom:0;left:0;z-index:30;width:var(--sidebar-w);transform:translateX(-100%);transition:transform .2s ease,visibility .2s;border-right:1px solid var(--line);box-shadow:var(--shadow)}
+  body.sidebar-open .sidebar{transform:translateX(0)}
+  body.sidebar-open .backdrop{display:block;position:fixed;inset:0;background:rgba(31,29,26,.35);z-index:20}
+}
+@media (min-width:900px){
+  #sidebar-close{display:none}
+}
 @media (max-width:560px){
   .brand small{display:none}
   .bubble{max-width:92%}
   .card{padding:14px}
   .avatar{display:none}
+  .mode-pill{padding:0 14px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<div class="app">
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand"><span class="brand-mark">RM</span>ResearchMind<small>R&amp;D Assistant</small></div>
-      <div class="spacer"></div>
-      <span class="pill" id="status" title="Backend status"><span class="dot"></span><span id="status-text">Connecting…</span></span>
-      <button class="btn-ghost" id="new-chat" type="button">New chat</button>
+<div class="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Chat history">
+    <div class="sidebar-inner">
+      <div class="sidebar-head">
+        <span class="sidebar-title">Chats</span>
+        <button class="icon-btn" id="sidebar-close" type="button" aria-label="Close sidebar" data-icon="close" data-size="18"></button>
+      </div>
+      <button class="new-chat-btn" id="new-chat" type="button"><span data-icon="plus" data-size="16"></span>New chat</button>
+      <nav class="chat-list" id="chat-list" aria-label="Past chats"></nav>
+      <p class="sidebar-foot">Chats are saved on the server and expire automatically.</p>
     </div>
-  </header>
+  </aside>
+  <div class="backdrop" id="backdrop"></div>
 
-  <main class="thread" id="thread">
-    <div class="thread-inner">
-      <section class="welcome" id="welcome">
-        <h1>What technology should we <em>evaluate</em>?</h1>
-        <p>Describe a technology question or requirement. I’ll research it across the web and GitHub, then write a cited R&amp;D brief with a comparison and a recommendation.</p>
-        <div class="examples" id="examples"></div>
-        <div class="stack">Built with LangGraph · FastAPI · Groq · Tavily</div>
-      </section>
-      <div id="messages"></div>
-    </div>
-  </main>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <button class="icon-btn" id="sidebar-toggle" type="button" aria-label="Show or hide chats" aria-controls="sidebar" aria-expanded="false" data-icon="menu" data-size="20"></button>
+        <div class="brand"><span class="brand-mark">RM</span>ResearchMind<small>R&amp;D Assistant</small></div>
+        <div class="spacer"></div>
+        <span class="pill" id="status" title="Backend status"><span class="dot"></span><span id="status-text">Connecting…</span></span>
+        <button class="icon-btn" id="new-chat-top" type="button" aria-label="New chat" title="New chat" data-icon="compose" data-size="20"></button>
+      </div>
+    </header>
 
-  <footer class="composer">
-    <form class="composer-box" id="composer" autocomplete="off">
-      <textarea id="input" rows="1" maxlength="500" placeholder="Ask about a technology, e.g. Which vector database for 1M documents?" aria-label="Research topic"></textarea>
-      <button id="send" type="submit" aria-label="Send">↑</button>
-    </form>
-    <div class="hint-row"><span id="hint" role="status"></span><span id="counter"></span></div>
-    <p class="foot">Briefs are generated from live sources and can contain errors — verify before deciding. · Built by Yogi Patel · <a href="https://github.com/patelyogi2635-gif" target="_blank" rel="noopener noreferrer">GitHub</a> · <a href="https://linkedin.com/in/patel-yogi-0a2526346" target="_blank" rel="noopener noreferrer">LinkedIn</a></p>
-  </footer>
+    <main class="thread" id="thread">
+      <div class="thread-inner">
+        <section class="welcome" id="welcome">
+          <h1>What technology should we <em>evaluate</em>?</h1>
+          <p>Describe a technology question or requirement. I’ll research it across the web and GitHub, then write a cited R&amp;D brief with a comparison and a recommendation.</p>
+          <div class="examples" id="examples"></div>
+          <div class="stack">Built with LangGraph · FastAPI · Groq · Tavily · MongoDB</div>
+        </section>
+        <div id="messages"></div>
+      </div>
+    </main>
+
+    <footer class="composer">
+      <form class="composer-card" id="composer" autocomplete="off">
+        <textarea id="input" rows="1" maxlength="500" placeholder="Ask about a technology, e.g. Which vector database for 1M documents?" aria-label="Research topic"></textarea>
+        <div class="composer-row">
+          <div class="menu-wrap">
+            <button class="circle-btn" id="plus" type="button" aria-label="Example questions" aria-haspopup="true" aria-expanded="false" data-icon="plus" data-size="20"></button>
+            <div class="menu hidden" id="menu" role="menu"></div>
+          </div>
+          <span class="mode-pill"><span class="dot"></span>Tech R&amp;D</span>
+          <span class="spacer"></span>
+          <span class="counter" id="counter"></span>
+          <button id="send" type="submit" aria-label="Send"></button>
+        </div>
+      </form>
+      <div class="hint-row"><span id="hint" role="status"></span></div>
+      <p class="foot">Briefs are generated from live sources and can contain errors — verify before deciding. · Built by Yogi Patel · <a href="https://github.com/patelyogi2635-gif" target="_blank" rel="noopener noreferrer">GitHub</a> · <a href="https://linkedin.com/in/patel-yogi-0a2526346" target="_blank" rel="noopener noreferrer">LinkedIn</a></p>
+    </footer>
+  </div>
 </div>
+<div class="toast hidden" id="toast" role="status"></div>
 <noscript>This app needs JavaScript.</noscript>
 
 <script>
@@ -196,16 +274,21 @@ td:first-child{font-weight:600;white-space:nowrap}
   "use strict";
 
   const PROD_API = "https://researchmind-ai-production.up.railway.app";
-  const STORE_KEY = "researchmind.chat.v1";
+  const PREFS_KEY = "researchmind.prefs.v1";
+  const LEGACY_CHAT_KEY = "researchmind.chat.v1";
   const CLIENT_KEY = "researchmind.client";
   const HISTORY_LIMIT = 50;
-  const MAX_STORED_MESSAGES = 12;
+  const LIST_PAGE_SIZE = 20;
+  const SIDEBAR_POLL_MS = 3000;
   const MIN_QUERY_LENGTH = 10;
   const MAX_QUERY_LENGTH = 500;
   const COUNTER_THRESHOLD = 400;
   const STATUS_REFRESH_MS = 15000;
   const POLL_INTERVAL_MS = 2000;
   const MAX_INPUT_HEIGHT = 160;
+  const TOAST_MS = 4000;
+  const DESKTOP_QUERY = "(min-width: 900px)";
+  const SVG_NS = "http://www.w3.org/2000/svg";
   const TERMINAL = new Set(["completed", "failed", "cancelled", "interrupted"]);
   const EVENT_NAMES = ["job_queued", "job_started", "routed", "queue_wait", "research_started", "node_started", "node_completed", "token", "job_completed", "job_failed", "job_cancelled"];
 
@@ -227,6 +310,15 @@ td:first-child{font-weight:600;white-space:nowrap}
     { tag: "Backend", text: "Celery vs Arq vs RQ for async background jobs in a FastAPI service" },
   ];
 
+  const ICONS = {
+    menu: ["M4 6h16", "M4 12h16", "M4 18h16"],
+    plus: ["M12 5v14", "M5 12h14"],
+    close: ["M6 6l12 12", "M18 6L6 18"],
+    trash: ["M4 7h16", "M10 11v6", "M14 11v6", "M6 7l1 12h10l1-12", "M9 7V4h6v3"],
+    arrowUp: ["M12 19V5", "M5 12l7-7 7 7"],
+    compose: ["M12 20h9", "M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"],
+  };
+
   const $ = (selector) => document.querySelector(selector);
   const threadEl = $("#thread");
   const messagesEl = $("#messages");
@@ -238,11 +330,25 @@ td:first-child{font-weight:600;white-space:nowrap}
   const counterEl = $("#counter");
   const statusEl = $("#status");
   const statusTextEl = $("#status-text");
+  const sidebarEl = $("#sidebar");
+  const chatListEl = $("#chat-list");
+  const toggleEl = $("#sidebar-toggle");
+  const plusEl = $("#plus");
+  const menuEl = $("#menu");
+  const toastEl = $("#toast");
 
-  let state = loadState();
+  const desktopMedia = window.matchMedia(DESKTOP_QUERY);
+  const view = { conversations: [], nextBefore: null, loaded: false, unavailable: false, offline: false, confirmId: null };
+
+  let state = loadPrefs();
   let current = null;
   let starting = false;
+  let pending = null;
   let stickToBottom = true;
+  let viewEpoch = 0;
+  let openCounter = 0;
+  let sidebarTimer = null;
+  let toastTimer = null;
 
   function resolveApiBase() {
     const override = new URLSearchParams(location.search).get("api");
@@ -250,7 +356,6 @@ td:first-child{font-weight:600;white-space:nowrap}
     const isLocal = ["localhost", "127.0.0.1", ""].includes(location.hostname);
     return isLocal ? "http://127.0.0.1:8000" : PROD_API;
   }
-  const API = resolveApiBase();
 
   function loadClientId() {
     try {
@@ -264,7 +369,6 @@ td:first-child{font-weight:600;white-space:nowrap}
       return uid().replace(/-/g, "");
     }
   }
-  const CLIENT_ID = loadClientId();
 
   function apiFetch(path, options = {}) {
     return fetch(`${API}${path}`, { ...options, headers: { "X-Client-Id": CLIENT_ID, ...(options.headers || {}) } });
@@ -315,28 +419,9 @@ td:first-child{font-weight:600;white-space:nowrap}
     return error && error.message ? error.message : "Something went wrong.";
   }
 
-  function loadState() {
-    try {
-      const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-      if (raw && Array.isArray(raw.messages)) return { messages: raw.messages, active: raw.active || null, conversationId: raw.conversationId || null };
-    } catch (error) {
-      console.warn("Could not read the saved chat", error);
-    }
-    return { messages: [], active: null, conversationId: null };
-  }
+  const API = resolveApiBase();
+  const CLIENT_ID = loadClientId();
 
-  function saveState() {
-    const messages = state.messages.slice(-MAX_STORED_MESSAGES);
-    for (;;) {
-      try {
-        localStorage.setItem(STORE_KEY, JSON.stringify({ messages, active: state.active, conversationId: state.conversationId }));
-        return;
-      } catch (error) {
-        if (messages.length === 0) return;
-        messages.shift();
-      }
-    }
-  }
 
   function updateWelcome() {
     welcomeEl.classList.toggle("hidden", messagesEl.childElementCount > 0);
@@ -345,10 +430,6 @@ td:first-child{font-weight:600;white-space:nowrap}
   function scrollToBottom(force = false) {
     if (force || stickToBottom) threadEl.scrollTo({ top: threadEl.scrollHeight, behavior: force ? "smooth" : "auto" });
   }
-
-  threadEl.addEventListener("scroll", () => {
-    stickToBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 140;
-  });
 
   function mount(node, force = false) {
     messagesEl.append(node);
@@ -632,70 +713,6 @@ td:first-child{font-weight:600;white-space:nowrap}
     return renderError(message.error || "Something went wrong.", message.query);
   }
 
-  function pushMessage(message, force = true) {
-    const stored = { id: uid(), ...message };
-    state.messages.push(stored);
-    if (state.messages.length > MAX_STORED_MESSAGES) state.messages.splice(0, state.messages.length - MAX_STORED_MESSAGES);
-    saveState();
-    mount(renderMessage(stored), force);
-  }
-
-  function setBusy(busy) {
-    sendEl.classList.toggle("stop", busy);
-    sendEl.textContent = busy ? "■" : "↑";
-    sendEl.setAttribute("aria-label", busy ? "Stop research" : "Send");
-  }
-
-  function endCurrent() {
-    const ctx = current;
-    if (!ctx) return null;
-    current = null;
-    if (ctx.es) ctx.es.close();
-    if (ctx.pollTimer) clearInterval(ctx.pollTimer);
-    ctx.progress.destroy();
-    ctx.progress.root.remove();
-    state.active = null;
-    setBusy(false);
-    return ctx;
-  }
-
-  function finalizeSuccess(result) {
-    const ctx = endCurrent();
-    if (!ctx) return;
-    if (!result) {
-      pushMessage({ role: "assistant", status: "error", error: "The server finished without a result.", query: ctx.job.query, jobId: ctx.job.job_id });
-      return;
-    }
-    pushMessage({ role: "assistant", status: "done", result, query: ctx.job.query, jobId: ctx.job.job_id });
-  }
-
-  function finalizeReply(reply) {
-    const ctx = endCurrent();
-    if (ctx) pushMessage({ role: "assistant", status: "reply", text: reply.text, intent: reply.intent, query: ctx.job.query, jobId: ctx.job.job_id });
-  }
-
-  function finalizeCompleted(payload) {
-    if (payload.result) finalizeSuccess(payload.result);
-    else if (payload.reply) finalizeReply(payload.reply);
-    else finalizeSuccess(null);
-  }
-
-  function finalizeError(message) {
-    const ctx = endCurrent();
-    if (ctx) pushMessage({ role: "assistant", status: "error", error: message, query: ctx.job.query, jobId: ctx.job.job_id });
-  }
-
-  function finalizeCancelled() {
-    const ctx = endCurrent();
-    if (ctx) pushMessage({ role: "assistant", status: "cancelled", query: ctx.job.query, jobId: ctx.job.job_id });
-  }
-
-  function finalizeFromJob(job) {
-    if (job.status === "completed") finalizeCompleted(job);
-    else if (job.status === "failed" || job.status === "interrupted") finalizeError((job.error && job.error.message) || "Research failed.");
-    else finalizeCancelled();
-  }
-
   function handleJobEvent(ctx, name, data) {
     if (current !== ctx) return;
     ctx.progress.onEvent(name, data);
@@ -755,32 +772,6 @@ td:first-child{font-weight:600;white-space:nowrap}
     return body;
   }
 
-  async function submitQuery(query) {
-    if (current || starting) return;
-    starting = true;
-    setBusy(true);
-    pushMessage({ role: "user", text: query });
-    const progress = createProgress();
-    mount(progress.root, true);
-
-    let job;
-    try {
-      job = await createJob(query);
-    } catch (error) {
-      progress.destroy();
-      progress.root.remove();
-      starting = false;
-      setBusy(false);
-      pushMessage({ role: "assistant", status: "error", error: errorText(error), query });
-      return;
-    }
-    starting = false;
-    state.conversationId = job.conversation_id || null;
-    state.active = { job_id: job.job_id, status_url: job.status_url, stream_url: job.stream_url, query };
-    saveState();
-    openStream(beginJob(progress, state.active));
-  }
-
   async function stopResearch() {
     const ctx = current;
     if (!ctx) return;
@@ -795,50 +786,6 @@ td:first-child{font-weight:600;white-space:nowrap}
     }
   }
 
-  async function resumeActive() {
-    const active = state.active;
-    if (!active) return;
-    if (state.messages.some((message) => message.role === "assistant" && message.jobId === active.job_id)) {
-      state.active = null;
-      saveState();
-      return;
-    }
-    const progress = createProgress();
-    mount(progress.root, true);
-    let job;
-    try {
-      const res = await apiFetch(active.status_url);
-      if (res.status === 404) throw new Error("The previous research job expired or the server restarted. Please ask again.");
-      job = await res.json();
-    } catch (error) {
-      progress.destroy();
-      progress.root.remove();
-      state.active = null;
-      pushMessage({ role: "assistant", status: "error", error: errorText(error), query: active.query });
-      return;
-    }
-    const ctx = beginJob(progress, active);
-    if (TERMINAL.has(job.status)) finalizeFromJob(job);
-    else openStream(ctx);
-  }
-
-  async function newChat() {
-    if (current) {
-      const ctx = current;
-      try {
-        await apiFetch(ctx.job.status_url, { method: "DELETE" });
-      } catch (error) {
-        console.warn("Could not cancel the running job", error);
-      }
-      endCurrent();
-    }
-    state = { messages: [], active: null, conversationId: null };
-    saveState();
-    messagesEl.replaceChildren();
-    updateWelcome();
-    inputEl.focus();
-  }
-
   function validateQuery(text) {
     if (text.length < MIN_QUERY_LENGTH) return `Please enter at least ${MIN_QUERY_LENGTH} characters.`;
     if (text.length > MAX_QUERY_LENGTH) return `Please keep it under ${MAX_QUERY_LENGTH} characters.`;
@@ -851,33 +798,6 @@ td:first-child{font-weight:600;white-space:nowrap}
     const length = inputEl.value.length;
     counterEl.textContent = length > COUNTER_THRESHOLD ? `${length}/${MAX_QUERY_LENGTH}` : "";
   }
-
-  formEl.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (current || starting) {
-      stopResearch();
-      return;
-    }
-    const text = inputEl.value.trim();
-    const problem = validateQuery(text);
-    hintEl.textContent = problem;
-    if (problem) return;
-    inputEl.value = "";
-    autosize();
-    submitQuery(text);
-  });
-
-  inputEl.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
-      event.preventDefault();
-      formEl.requestSubmit();
-    }
-  });
-  inputEl.addEventListener("input", () => {
-    hintEl.textContent = "";
-    autosize();
-  });
-  $("#new-chat").addEventListener("click", newChat);
 
   function renderExamples() {
     $("#examples").replaceChildren(...EXAMPLES.map((example) =>
@@ -912,33 +832,543 @@ td:first-child{font-weight:600;white-space:nowrap}
     return { ...assistant, status: "error", error: (item.error && item.error.message) || item.text || "Something went wrong." };
   }
 
-  async function loadHistory() {
-    if (!state.conversationId) return;
-    try {
-      const res = await apiFetch(`/api/conversations/${encodeURIComponent(state.conversationId)}?limit=${HISTORY_LIMIT}`);
-      if (res.status === 404) {
-        state.conversationId = null;
-        saveState();
-        return;
-      }
-      if (!res.ok) return;
-      const data = await res.json();
-      state.messages = data.messages.map(toLocalMessage);
-      saveState();
-    } catch (error) {
-      console.warn("Could not load the conversation history", error);
+  function icon(name, size = 18) {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", String(size));
+    svg.setAttribute("height", String(size));
+    svg.setAttribute("aria-hidden", "true");
+    if (name === "stop") {
+      const rect = document.createElementNS(SVG_NS, "rect");
+      rect.setAttribute("x", "6");
+      rect.setAttribute("y", "6");
+      rect.setAttribute("width", "12");
+      rect.setAttribute("height", "12");
+      rect.setAttribute("rx", "2");
+      rect.setAttribute("fill", "currentColor");
+      svg.append(rect);
+      return svg;
+    }
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    for (const d of ICONS[name] || []) {
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", d);
+      svg.append(path);
+    }
+    return svg;
+  }
+
+  function applyIcons() {
+    for (const node of document.querySelectorAll("[data-icon]")) {
+      node.append(icon(node.dataset.icon, Number(node.dataset.size) || 18));
     }
   }
 
-  async function init() {
-    renderExamples();
-    await loadHistory();
-    for (const message of state.messages) messagesEl.append(renderMessage(message));
+  function loadPrefs() {
+    let saved = {};
+    let legacyConversation = null;
+    try {
+      saved = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") || {};
+      const legacy = JSON.parse(localStorage.getItem(LEGACY_CHAT_KEY) || "null");
+      legacyConversation = legacy && typeof legacy.conversationId === "string" ? legacy.conversationId : null;
+      localStorage.removeItem(LEGACY_CHAT_KEY);
+    } catch (error) {
+      console.warn("Could not read saved preferences", error);
+    }
+    const desktopOpen = saved.desktopOpen !== false;
+    return {
+      conversationId: typeof saved.conversationId === "string" ? saved.conversationId : legacyConversation,
+      desktopOpen,
+      sidebarOpen: desktopMedia.matches ? desktopOpen : false,
+    };
+  }
+
+  function savePrefs() {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ conversationId: state.conversationId, desktopOpen: state.desktopOpen }));
+    } catch (error) {
+      console.warn("Could not save preferences", error);
+    }
+  }
+
+  function applySidebar() {
+    document.body.classList.toggle("sidebar-open", state.sidebarOpen);
+    toggleEl.setAttribute("aria-expanded", String(state.sidebarOpen));
+  }
+
+  function setSidebar(open) {
+    state.sidebarOpen = open;
+    if (desktopMedia.matches) state.desktopOpen = open;
+    savePrefs();
+    applySidebar();
+  }
+
+  function closeDrawerOnMobile() {
+    if (!desktopMedia.matches && state.sidebarOpen) setSidebar(false);
+  }
+
+  function showToast(message) {
+    toastEl.textContent = message;
+    toastEl.classList.remove("hidden");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.add("hidden"), TOAST_MS);
+  }
+
+  threadEl.addEventListener("scroll", () => {
+    stickToBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 140;
+  });
+
+  function pushMessage(message, force = true) {
+    mount(renderMessage(message), force);
+  }
+
+  function setBusy(busy) {
+    sendEl.classList.toggle("stop", busy);
+    sendEl.replaceChildren(icon(busy ? "stop" : "arrowUp", 20));
+    sendEl.setAttribute("aria-label", busy ? "Stop research" : "Send");
+  }
+
+  function detachCurrent() {
+    if (pending) {
+      pending.destroy();
+      pending = null;
+    }
+    const ctx = current;
+    current = null;
+    if (ctx) {
+      if (ctx.es) ctx.es.close();
+      if (ctx.pollTimer) clearInterval(ctx.pollTimer);
+      ctx.progress.destroy();
+      ctx.progress.root.remove();
+    }
+    setBusy(false);
+  }
+
+  function endCurrent() {
+    const ctx = current;
+    if (!ctx) return null;
+    detachCurrent();
+    return ctx;
+  }
+
+  function finish(message) {
+    const ctx = endCurrent();
+    if (!ctx) return;
+    pushMessage({ role: "assistant", query: ctx.job.query, jobId: ctx.job.job_id, ...message });
+    refreshConversations();
+  }
+
+  function finalizeSuccess(result) {
+    if (result) finish({ status: "done", result });
+    else finish({ status: "error", error: "The server finished without a result." });
+  }
+
+  function finalizeReply(reply) {
+    finish({ status: "reply", text: reply.text, intent: reply.intent });
+  }
+
+  function finalizeCompleted(payload) {
+    if (payload.result) finalizeSuccess(payload.result);
+    else if (payload.reply) finalizeReply(payload.reply);
+    else finalizeSuccess(null);
+  }
+
+  function finalizeError(message) {
+    finish({ status: "error", error: message });
+  }
+
+  function finalizeCancelled() {
+    finish({ status: "cancelled" });
+  }
+
+  function finalizeFromJob(job) {
+    if (job.status === "completed") finalizeCompleted(job);
+    else if (job.status === "failed" || job.status === "interrupted") finalizeError((job.error && job.error.message) || "Research failed.");
+    else finalizeCancelled();
+  }
+
+  async function submitQuery(query) {
+    if (current || starting) return;
+    starting = true;
+    setBusy(true);
+    const epoch = viewEpoch;
+    mount(renderUser(query), true);
+    const progress = createProgress();
+    pending = progress;
+    mount(progress.root, true);
+
+    let job;
+    try {
+      job = await createJob(query);
+    } catch (error) {
+      progress.destroy();
+      progress.root.remove();
+      pending = null;
+      starting = false;
+      setBusy(false);
+      if (epoch === viewEpoch) pushMessage({ role: "assistant", status: "error", error: errorText(error), query });
+      return;
+    }
+    starting = false;
+    if (epoch !== viewEpoch) {
+      progress.destroy();
+      refreshConversations();
+      return;
+    }
+    pending = null;
+    state.conversationId = job.conversation_id || null;
+    savePrefs();
+    const active = { job_id: job.job_id, status_url: job.status_url, stream_url: job.stream_url, query };
+    openStream(beginJob(progress, active));
+    refreshConversations();
+  }
+
+  function groupLabel(seconds) {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const day = 86400000;
+    const time = seconds * 1000;
+    if (time >= startOfToday) return "Today";
+    if (time >= startOfToday - day) return "Yesterday";
+    if (time >= startOfToday - 7 * day) return "Previous 7 days";
+    return "Older";
+  }
+
+  function renderChatItem(conversation) {
+    const id = conversation.conversation_id;
+    const row = el("div", { class: `chat-item${id === state.conversationId ? " active" : ""}`, role: "listitem" });
+    row.append(
+      el("button", { class: "chat-open", type: "button", title: conversation.title, onclick: () => openConversation(id) },
+        conversation.active_job_id ? el("span", { class: "spinner small", "aria-label": "Answering" }) : null,
+        el("span", { class: "chat-title", text: conversation.title || "New conversation" }))
+    );
+    if (view.confirmId === id) {
+      row.append(
+        el("div", { class: "confirm" },
+          el("button", { class: "confirm-yes", type: "button", text: "Delete", onclick: () => deleteConversation(id) }),
+          el("button", { type: "button", text: "Cancel", onclick: () => { view.confirmId = null; renderSidebar(); } }))
+      );
+    } else {
+      const remove = el("button", { class: "icon-btn danger", type: "button", "aria-label": "Delete chat", title: "Delete chat" });
+      remove.append(icon("trash", 16));
+      remove.addEventListener("click", (event) => {
+        event.stopPropagation();
+        view.confirmId = id;
+        renderSidebar();
+      });
+      row.append(remove);
+    }
+    return row;
+  }
+
+  function renderSidebar() {
+    chatListEl.replaceChildren();
+    if (view.unavailable) {
+      chatListEl.append(el("p", { class: "list-note", text: "Chat history is unavailable right now. You can still ask questions." }));
+      return;
+    }
+    if (view.offline && !view.conversations.length) {
+      chatListEl.append(el("p", { class: "list-note", text: "Can't reach the server." }));
+      return;
+    }
+    if (!view.loaded) {
+      chatListEl.append(el("p", { class: "list-note", text: "Loading…" }));
+      return;
+    }
+    if (!view.conversations.length) {
+      chatListEl.append(el("p", { class: "list-note", text: "No chats yet. Ask your first question." }));
+      return;
+    }
+    let lastLabel = "";
+    for (const conversation of view.conversations) {
+      const label = groupLabel(conversation.updated_at);
+      if (label !== lastLabel) {
+        chatListEl.append(el("div", { class: "group-label", text: label }));
+        lastLabel = label;
+      }
+      chatListEl.append(renderChatItem(conversation));
+    }
+    if (view.nextBefore !== null) {
+      chatListEl.append(el("button", { class: "load-more", type: "button", text: "Load more", onclick: loadMoreConversations }));
+    }
+  }
+
+  async function fetchConversationList(before) {
+    const params = new URLSearchParams({ limit: String(LIST_PAGE_SIZE) });
+    if (before !== null) params.set("before", String(before));
+    const res = await apiFetch(`/api/conversations?${params}`);
+    if (res.status === 503) return null;
+    if (!res.ok) throw new Error(`Could not load chats (${res.status})`);
+    return res.json();
+  }
+
+  async function refreshConversations() {
+    clearTimeout(sidebarTimer);
+    sidebarTimer = null;
+    try {
+      const data = await fetchConversationList(null);
+      view.offline = false;
+      if (data === null) {
+        view.unavailable = true;
+        view.conversations = [];
+        view.nextBefore = null;
+      } else {
+        view.unavailable = false;
+        const fresh = data.conversations;
+        const freshIds = new Set(fresh.map((item) => item.conversation_id));
+        const oldest = fresh.length ? fresh[fresh.length - 1].updated_at : Infinity;
+        const older = view.conversations.filter((item) => !freshIds.has(item.conversation_id) && item.updated_at < oldest);
+        view.conversations = [...fresh, ...older];
+        view.nextBefore = older.length ? view.nextBefore : data.next_before;
+      }
+    } catch (error) {
+      view.offline = true;
+      console.warn("Could not refresh chats", error);
+    }
+    view.loaded = true;
+    renderSidebar();
+    if (view.conversations.some((item) => item.active_job_id)) {
+      sidebarTimer = setTimeout(refreshConversations, SIDEBAR_POLL_MS);
+    }
+  }
+
+  async function loadMoreConversations() {
+    if (view.nextBefore === null) return;
+    try {
+      const data = await fetchConversationList(view.nextBefore);
+      if (data === null) return;
+      const known = new Set(view.conversations.map((item) => item.conversation_id));
+      view.conversations.push(...data.conversations.filter((item) => !known.has(item.conversation_id)));
+      view.nextBefore = data.next_before;
+      renderSidebar();
+    } catch (error) {
+      showToast(errorText(error));
+    }
+  }
+
+  async function fetchConversation(id, before = null) {
+    const params = new URLSearchParams({ limit: String(HISTORY_LIMIT) });
+    if (before !== null) params.set("before", String(before));
+    const res = await apiFetch(`/api/conversations/${encodeURIComponent(id)}?${params}`);
+    if (res.status === 404) return { missing: true };
+    if (res.status === 503) return { unavailable: true };
+    if (!res.ok) throw new Error(`Could not load the chat (${res.status})`);
+    return res.json();
+  }
+
+  function renderEarlierButton(id, before) {
+    const button = el("button", { class: "btn-ghost load-earlier", type: "button", text: "Load earlier messages" });
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        const page = await fetchConversation(id, before);
+        if (page.missing || page.unavailable || id !== state.conversationId) {
+          button.disabled = false;
+          return;
+        }
+        const nodes = page.messages.map((item) => renderMessage(toLocalMessage(item)));
+        const next = page.has_more ? renderEarlierButton(id, page.next_before) : null;
+        button.replaceWith(...[next, ...nodes].filter(Boolean));
+      } catch (error) {
+        button.disabled = false;
+        showToast(errorText(error));
+      }
+    });
+    return button;
+  }
+
+  async function attachRunningJob(jobId, token) {
+    const progress = createProgress();
+    mount(progress.root, true);
+    const discard = () => {
+      progress.destroy();
+      progress.root.remove();
+    };
+    let job;
+    try {
+      const res = await apiFetch(`/api/research/jobs/${jobId}`);
+      if (!res.ok) throw new Error(`Job lookup failed (${res.status})`);
+      job = await res.json();
+    } catch (error) {
+      console.warn("Could not attach to the running job", error);
+      discard();
+      return;
+    }
+    if (token !== openCounter) {
+      discard();
+      return;
+    }
+    if (TERMINAL.has(job.status)) {
+      discard();
+      await openConversation(state.conversationId, { noAttach: true });
+      return;
+    }
+    const active = {
+      job_id: job.job_id,
+      status_url: `/api/research/jobs/${job.job_id}`,
+      stream_url: `/api/research/jobs/${job.job_id}/stream`,
+      query: job.query,
+    };
+    openStream(beginJob(progress, active));
+  }
+
+  async function openConversation(id, { initial = false, noAttach = false } = {}) {
+    if (!initial && !noAttach && id === state.conversationId && messagesEl.childElementCount > 0) {
+      closeDrawerOnMobile();
+      return;
+    }
+    const token = ++openCounter;
+    viewEpoch += 1;
+    detachCurrent();
+    closeDrawerOnMobile();
+
+    let data;
+    try {
+      data = await fetchConversation(id);
+    } catch (error) {
+      if (token === openCounter) showToast(errorText(error));
+      return;
+    }
+    if (token !== openCounter) return;
+
+    if (data.missing || data.unavailable) {
+      if (!initial) showToast(data.missing ? "That chat no longer exists." : "Chat history is unavailable right now.");
+      state.conversationId = null;
+      savePrefs();
+      messagesEl.replaceChildren();
+      updateWelcome();
+      renderSidebar();
+      return;
+    }
+
+    state.conversationId = id;
+    savePrefs();
+    messagesEl.replaceChildren();
+    if (data.has_more) messagesEl.append(renderEarlierButton(id, data.next_before));
+    for (const item of data.messages) messagesEl.append(renderMessage(toLocalMessage(item)));
     updateWelcome();
-    threadEl.scrollTop = threadEl.scrollHeight;
+    renderSidebar();
+    scrollToBottom(true);
+    if (!noAttach && data.conversation.active_job_id) await attachRunningJob(data.conversation.active_job_id, token);
+  }
+
+  function newChat() {
+    viewEpoch += 1;
+    openCounter += 1;
+    detachCurrent();
+    state.conversationId = null;
+    savePrefs();
+    messagesEl.replaceChildren();
+    updateWelcome();
+    renderSidebar();
+    closeDrawerOnMobile();
+    inputEl.focus();
+  }
+
+  async function deleteConversation(id) {
+    view.confirmId = null;
+    try {
+      const res = await apiFetch(`/api/conversations/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 404) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `Could not delete the chat (${res.status})`);
+      }
+    } catch (error) {
+      showToast(errorText(error));
+      renderSidebar();
+      return;
+    }
+    view.conversations = view.conversations.filter((item) => item.conversation_id !== id);
+    if (id === state.conversationId) newChat();
+    else renderSidebar();
+    refreshConversations();
+  }
+
+  function toggleMenu(open) {
+    menuEl.classList.toggle("hidden", !open);
+    plusEl.setAttribute("aria-expanded", String(open));
+  }
+
+  function renderMenu() {
+    menuEl.replaceChildren(
+      el("div", { class: "menu-title", text: "Try an example" }),
+      ...EXAMPLES.map((example) =>
+        el("button", { class: "menu-item", type: "button", role: "menuitem", onclick: () => { toggleMenu(false); submitQuery(example.text); } },
+          el("span", { class: "menu-tag", text: example.tag }), example.text))
+    );
+  }
+
+  formEl.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (current || starting) {
+      stopResearch();
+      return;
+    }
+    const text = inputEl.value.trim();
+    const problem = validateQuery(text);
+    hintEl.textContent = problem;
+    if (problem) return;
+    inputEl.value = "";
+    autosize();
+    submitQuery(text);
+  });
+
+  inputEl.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      formEl.requestSubmit();
+    }
+  });
+  inputEl.addEventListener("input", () => {
+    hintEl.textContent = "";
+    autosize();
+  });
+
+  toggleEl.addEventListener("click", () => setSidebar(!state.sidebarOpen));
+  $("#sidebar-close").addEventListener("click", () => setSidebar(false));
+  $("#backdrop").addEventListener("click", () => setSidebar(false));
+  $("#new-chat").addEventListener("click", newChat);
+  $("#new-chat-top").addEventListener("click", newChat);
+  plusEl.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMenu(menuEl.classList.contains("hidden"));
+  });
+  document.addEventListener("click", (event) => {
+    if (!menuEl.contains(event.target)) toggleMenu(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    toggleMenu(false);
+    closeDrawerOnMobile();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refreshConversations();
+  });
+  desktopMedia.addEventListener("change", () => {
+    state.sidebarOpen = desktopMedia.matches ? state.desktopOpen : false;
+    applySidebar();
+  });
+
+  async function init() {
+    applyIcons();
+    setBusy(false);
+    applySidebar();
+    renderExamples();
+    renderMenu();
+    renderSidebar();
+    updateWelcome();
     refreshStatus();
     setInterval(refreshStatus, STATUS_REFRESH_MS);
-    resumeActive();
+    await refreshConversations();
+    if (state.conversationId && !view.unavailable && !view.offline) {
+      await openConversation(state.conversationId, { initial: true });
+    } else if (view.unavailable || view.offline) {
+      state.conversationId = null;
+    }
     inputEl.focus();
   }
 
