@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     groq_api_key: str
     tavily_api_key: str
     github_token: str
+    jwt_secret: str
 
     app_env: str = "development"
     log_level: str = "INFO"
@@ -60,13 +61,19 @@ class Settings(BaseSettings):
     max_stream_chars: int = 20000
 
     mongodb_enabled: bool = True
-    mongodb_required: bool = False
+    mongodb_required: bool = True
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db: str = "researchmind"
     mongodb_timeout_ms: int = 3000
     mongodb_write_attempts: int = 3
     mongodb_retention_days: int = 30
     history_turns: int = 6
+
+    access_token_minutes: int = 30
+    refresh_token_days: int = 14
+    registration_enabled: bool = True
+    login_max_attempts: int = 5
+    login_lock_minutes: int = 15
 
 
 @lru_cache

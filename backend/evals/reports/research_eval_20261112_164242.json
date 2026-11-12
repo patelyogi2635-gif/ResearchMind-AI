@@ -1,0 +1,168 @@
+{
+  "meta": {
+    "timestamp": "2026-11-12 11:12 UTC",
+    "writer_model": "openai/gpt-oss-120b",
+    "chat_model": "openai/gpt-oss-20b",
+    "router_model": "openai/gpt-oss-20b",
+    "judge_model": null,
+    "streaming": true
+  },
+  "summary": {
+    "topics": 3,
+    "succeeded": 3,
+    "success_rate": 1.0,
+    "structure_ok_rate": 1.0,
+    "citation_coverage": 0.9333333333333332,
+    "topic_coverage_rate": 1.0,
+    "groundedness": null,
+    "latency_p50_seconds": 17.129598200088367,
+    "latency_p95_seconds": 17.458547930046915,
+    "tokens_mean_total": 5749.0,
+    "tokens_mean_input": 2462.3333333333335,
+    "tokens_mean_output": 3286.6666666666665,
+    "sources_mean": 4.0,
+    "domains_mean": 4.0,
+    "node_seconds_mean": {
+      "decompose_query": 2.06,
+      "score_sources": 0.0,
+      "search_github": 0.9400000000000001,
+      "search_web": 2.776666666666667,
+      "select_sources": 0.0,
+      "stream_summary": 2.6566666666666667,
+      "synthesize_brief": 8.423333333333334
+    },
+    "confidence": {
+      "high": 2,
+      "medium": 1
+    },
+    "failures": {}
+  },
+  "results": [
+    {
+      "id": "vector-db",
+      "category": "databases",
+      "query": "Which vector database should we use for 1M documents with hybrid search?",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 17.129598200088367,
+      "node_seconds": {
+        "search_github": 1.01,
+        "decompose_query": 2.67,
+        "search_web": 2.29,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 2.22,
+        "synthesize_brief": 9.84
+      },
+      "tokens": {
+        "input": 2436,
+        "output": 3491,
+        "total": 5927
+      },
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 3
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Weaviate",
+      "groundedness": null,
+      "claims_judged": 0,
+      "unsupported_examples": [],
+      "sources_count": 4,
+      "domains": [
+        "acecloud.ai",
+        "encore.dev",
+        "firecrawl.dev",
+        "intl.cloud.baidu.com"
+      ]
+    },
+    {
+      "id": "agent-frameworks",
+      "category": "ai",
+      "query": "Compare LangGraph, CrewAI and AutoGen for production multi-agent systems",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 17.49509790004231,
+      "node_seconds": {
+        "search_github": 0.9,
+        "decompose_query": 1.82,
+        "search_web": 3.58,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 3.51,
+        "synthesize_brief": 8.58
+      },
+      "tokens": {
+        "input": 2502,
+        "output": 3573,
+        "total": 6075
+      },
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "LangGraph",
+      "groundedness": null,
+      "claims_judged": 0,
+      "unsupported_examples": [],
+      "sources_count": 4,
+      "domains": [
+        "datacamp.com",
+        "galileo.ai",
+        "honeyhive.ai",
+        "pickaxe.co"
+      ]
+    },
+    {
+      "id": "speaker-diarization",
+      "category": "speech",
+      "query": "Best open-source local speaker diarization and transcription pipeline",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.271073100040667,
+      "node_seconds": {
+        "search_github": 0.91,
+        "decompose_query": 1.69,
+        "search_web": 2.46,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 2.24,
+        "synthesize_brief": 6.85
+      },
+      "tokens": {
+        "input": 2449,
+        "output": 2796,
+        "total": 5245
+      },
+      "structure_issues": [],
+      "citation": {
+        "items": 10,
+        "cited_items": 8,
+        "coverage": 0.8,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "medium",
+      "recommended": "OpenWhispr",
+      "groundedness": null,
+      "claims_judged": 0,
+      "unsupported_examples": [],
+      "sources_count": 4,
+      "domains": [
+        "arxiv.org",
+        "openwhispr.com",
+        "picovoice.ai",
+        "pyannote.ai"
+      ]
+    }
+  ]
+}

@@ -106,7 +106,7 @@ def _title(text: str) -> str:
 
 
 async def ensure_conversation(
-    runtime: Runtime, client_id: str, conversation_id: str | None, first_message: str
+    runtime: Runtime, user_id: str, conversation_id: str | None, first_message: str
 ) -> dict | None:
     """Returns the client's conversation, creating a new one when needed.
 
@@ -114,7 +114,7 @@ async def ensure_conversation(
 
     Args:
         runtime: Shared runtime.
-        client_id: The anonymous browser id of the caller.
+        user_id: The authenticated user id of the caller.
         conversation_id: The conversation to continue, or None.
         first_message: The message used to title a new conversation.
 
@@ -126,7 +126,7 @@ async def ensure_conversation(
         existing = await _read(
             runtime,
             "conversation.get",
-            db.conversations.find_one({"_id": conversation_id, "client_id": client_id}),
+            db.conversations.find_one({"_id": conversation_id, "user_id": user_id}),
         )
         if existing:
             return existing
@@ -134,7 +134,7 @@ async def ensure_conversation(
     now = time.time()
     document = {
         "_id": new_id(),
-        "client_id": client_id,
+        "user_id": user_id,
         "title": _title(first_message),
         "created_at": now,
         "updated_at": now,
@@ -147,14 +147,14 @@ async def ensure_conversation(
 
 
 async def acquire_conversation(
-    runtime: Runtime, conversation_id: str, client_id: str, job_id: str
+    runtime: Runtime, conversation_id: str, user_id: str, job_id: str
 ) -> bool | None:
     """Atomically marks a job as the only active one in a conversation.
 
     Args:
         runtime: Shared runtime.
         conversation_id: The conversation to lock.
-        client_id: The owner of the conversation.
+        user_id: The owner of the conversation.
         job_id: The job taking the lock.
 
     Returns:
@@ -166,7 +166,7 @@ async def acquire_conversation(
         runtime,
         "conversation.acquire",
         db.conversations.update_one(
-            {"_id": conversation_id, "client_id": client_id, "active_job_id": None},
+            {"_id": conversation_id, "user_id": user_id, "active_job_id": None},
             {"$set": {"active_job_id": job_id, "updated_at": time.time()}},
         ),
     )
@@ -191,7 +191,7 @@ async def record_job_start(
     runtime: Runtime,
     job_id: str,
     conversation_id: str,
-    client_id: str,
+    user_id: str,
     request_id: str | None,
     query: str,
 ) -> str | None:
@@ -201,7 +201,7 @@ async def record_job_start(
         runtime: Shared runtime.
         job_id: The job identifier.
         conversation_id: The conversation the message belongs to.
-        client_id: The owner of the conversation.
+        user_id: The owner of the conversation.
         request_id: The HTTP request id, for log correlation.
         query: The user's message text.
 
@@ -215,7 +215,7 @@ async def record_job_start(
     message = {
         "_id": message_id,
         "conversation_id": conversation_id,
-        "client_id": client_id,
+        "user_id": user_id,
         "role": "user",
         "kind": "user",
         "text": query[:MAX_TEXT_CHARS],
@@ -228,7 +228,7 @@ async def record_job_start(
     job = {
         "_id": job_id,
         "conversation_id": conversation_id,
-        "client_id": client_id,
+        "user_id": user_id,
         "request_id": request_id,
         "user_message_id": message_id,
         "assistant_message_id": None,
@@ -260,7 +260,7 @@ def _assistant_document(job: JobRecord, status: JobStatus, now: float, runtime: 
     return {
         "_id": new_id(),
         "conversation_id": job.conversation_id,
-        "client_id": job.client_id,
+        "user_id": job.user_id,
         "role": "assistant",
         "kind": kind,
         "text": text[:MAX_TEXT_CHARS],
@@ -286,7 +286,7 @@ async def persist_outcome(runtime: Runtime, job: JobRecord, status: JobStatus) -
         job: The finished job.
         status: The final job status.
     """
-    if not memory_available(runtime) or not job.conversation_id or not job.client_id:
+    if not memory_available(runtime) or not job.conversation_id or not job.user_id:
         return
     db = runtime.mongo_db
     now = time.time()
@@ -344,7 +344,7 @@ async def recover_interrupted_jobs(runtime: Runtime) -> int:
         message = {
             "_id": new_id(),
             "conversation_id": job["conversation_id"],
-            "client_id": job["client_id"],
+            "user_id": job.get("user_id", job.get("client_id")),
             "role": "assistant",
             "kind": "error",
             "text": INTERRUPTED_MESSAGE,
@@ -436,7 +436,7 @@ def _render_turn(document: dict, blocked_jobs: set[str]) -> str | None:
 
 
 async def load_context(
-    runtime: Runtime, conversation_id: str, client_id: str
+    runtime: Runtime, conversation_id: str, user_id: str
 ) -> ConversationContext | None:
     """Loads recent turns and a summary of the latest brief for routing and answers.
 
@@ -446,7 +446,7 @@ async def load_context(
     Args:
         runtime: Shared runtime.
         conversation_id: The conversation to read.
-        client_id: The owner of the conversation.
+        user_id: The owner of the conversation.
 
     Returns:
         The context, or None when memory is unavailable or the read failed.
@@ -455,7 +455,7 @@ async def load_context(
         return None
     db = runtime.mongo_db
     limit = runtime.settings.history_turns * 2
-    scope = {"conversation_id": conversation_id, "client_id": client_id}
+    scope = {"conversation_id": conversation_id, "user_id": user_id}
     recent = await _read(runtime, "context.recent", _fetch(db.messages, scope, "created_at", -1, limit))
     if recent is None:
         return None
@@ -513,13 +513,13 @@ def _message_response(document: dict) -> MessageResponse:
 
 
 async def list_conversations(
-    runtime: Runtime, client_id: str, limit: int, before: float | None
+    runtime: Runtime, user_id: str, limit: int, before: float | None
 ) -> ConversationListResponse:
     """Lists a client's conversations, newest first, with cursor pagination.
 
     Args:
         runtime: Shared runtime.
-        client_id: The anonymous browser id.
+        user_id: The authenticated user id.
         limit: Page size.
         before: Only conversations updated before this time, for the next page.
 
@@ -530,7 +530,7 @@ async def list_conversations(
         AppError: With status 503 when the database is unavailable.
     """
     _require_memory(runtime)
-    query: dict[str, Any] = {"client_id": client_id}
+    query: dict[str, Any] = {"user_id": user_id}
     if before is not None:
         query["updated_at"] = {"$lt": before}
     documents = await _read(
@@ -547,13 +547,13 @@ async def list_conversations(
 
 
 async def get_conversation_page(
-    runtime: Runtime, client_id: str, conversation_id: str, limit: int, before: float | None
+    runtime: Runtime, user_id: str, conversation_id: str, limit: int, before: float | None
 ) -> ConversationResponse:
     """Returns a conversation with its latest messages, oldest first.
 
     Args:
         runtime: Shared runtime.
-        client_id: The anonymous browser id.
+        user_id: The authenticated user id.
         conversation_id: The conversation to read.
         limit: Maximum number of messages to return.
         before: Only messages created before this time, to load older history.
@@ -568,11 +568,11 @@ async def get_conversation_page(
     _require_memory(runtime)
     db = runtime.mongo_db
     conversation = await _read(
-        runtime, "conversation.get", db.conversations.find_one({"_id": conversation_id, "client_id": client_id})
+        runtime, "conversation.get", db.conversations.find_one({"_id": conversation_id, "user_id": user_id})
     )
     if conversation is None:
         raise AppError("Conversation not found", status_code=404, code="conversation_not_found")
-    query: dict[str, Any] = {"conversation_id": conversation_id, "client_id": client_id}
+    query: dict[str, Any] = {"conversation_id": conversation_id, "user_id": user_id}
     if before is not None:
         query["created_at"] = {"$lt": before}
     documents = await _read(runtime, "messages.list", _fetch(db.messages, query, "created_at", -1, limit + 1))
@@ -589,12 +589,12 @@ async def get_conversation_page(
     )
 
 
-async def delete_conversation(runtime: Runtime, client_id: str, conversation_id: str) -> int:
+async def delete_conversation(runtime: Runtime, user_id: str, conversation_id: str) -> int:
     """Deletes a conversation with all its messages and jobs.
 
     Args:
         runtime: Shared runtime.
-        client_id: The anonymous browser id.
+        user_id: The authenticated user id.
         conversation_id: The conversation to delete.
 
     Returns:
@@ -606,20 +606,20 @@ async def delete_conversation(runtime: Runtime, client_id: str, conversation_id:
     """
     _require_memory(runtime)
     db = runtime.mongo_db
-    scope = {"conversation_id": conversation_id, "client_id": client_id}
+    scope = {"conversation_id": conversation_id, "user_id": user_id}
     found = await _read(
-        runtime, "conversation.get", db.conversations.find_one({"_id": conversation_id, "client_id": client_id})
+        runtime, "conversation.get", db.conversations.find_one({"_id": conversation_id, "user_id": user_id})
     )
     if found is None:
         raise AppError("Conversation not found", status_code=404, code="conversation_not_found")
     deleted = await _read(runtime, "messages.delete", db.messages.delete_many(scope))
     await _read(runtime, "jobs.delete", db.jobs.delete_many(scope))
-    await _read(runtime, "conversation.delete", db.conversations.delete_one({"_id": conversation_id, "client_id": client_id}))
+    await _read(runtime, "conversation.delete", db.conversations.delete_one({"_id": conversation_id, "user_id": user_id}))
     logger.info("memory.conversation_deleted conversation_id=%s", conversation_id)
     return deleted.deleted_count if deleted else 0
 
 
-async def lookup_id(runtime: Runtime, client_id: str, identifier: str) -> LookupResponse:
+async def lookup_id(runtime: Runtime, user_id: str, identifier: str) -> LookupResponse:
     """Finds a conversation from any of its ids.
 
     Tries a conversation id, a job id, a message id and a request id, in that
@@ -627,7 +627,7 @@ async def lookup_id(runtime: Runtime, client_id: str, identifier: str) -> Lookup
 
     Args:
         runtime: Shared runtime.
-        client_id: The anonymous browser id.
+        user_id: The authenticated user id.
         identifier: Any id to look up.
 
     Returns:
@@ -639,7 +639,7 @@ async def lookup_id(runtime: Runtime, client_id: str, identifier: str) -> Lookup
     """
     _require_memory(runtime)
     db = runtime.mongo_db
-    owner = {"client_id": client_id}
+    owner = {"user_id": user_id}
 
     conversation = await _read(runtime, "lookup.conversation", db.conversations.find_one({"_id": identifier, **owner}))
     if conversation:
@@ -677,13 +677,13 @@ async def lookup_id(runtime: Runtime, client_id: str, identifier: str) -> Lookup
     raise AppError("Nothing found for that id", status_code=404, code="id_not_found")
 
 
-async def load_job_response(runtime: Runtime, job_id: str, client_id: str) -> JobResponse | None:
+async def load_job_response(runtime: Runtime, job_id: str, user_id: str) -> JobResponse | None:
     """Rebuilds a job's public view from MongoDB, for jobs no longer in memory.
 
     Args:
         runtime: Shared runtime.
         job_id: The job identifier.
-        client_id: The anonymous browser id, which must own the job.
+        user_id: The authenticated user id, which must own the job.
 
     Returns:
         The job view, or None when it is not found for this client.
@@ -691,7 +691,7 @@ async def load_job_response(runtime: Runtime, job_id: str, client_id: str) -> Jo
     if not memory_available(runtime):
         return None
     db = runtime.mongo_db
-    job = await _read(runtime, "job.get", db.jobs.find_one({"_id": job_id, "client_id": client_id}))
+    job = await _read(runtime, "job.get", db.jobs.find_one({"_id": job_id, "user_id": user_id}))
     if job is None:
         return None
     assistant = None

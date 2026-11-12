@@ -6,6 +6,7 @@ os.environ.setdefault("GROQ_API_KEY", "test-groq")
 os.environ.setdefault("TAVILY_API_KEY", "test-tavily")
 os.environ.setdefault("GITHUB_TOKEN", "test-github")
 os.environ.setdefault("MONGODB_ENABLED", "false")
+os.environ.setdefault("JWT_SECRET", "t" * 40)
 
 import pytest
 import pytest_asyncio
@@ -41,11 +42,11 @@ async def mongo_runtime():
     await close_runtime(runtime)
 
 
-def make_job(conversation_id: str, client_id: str = OWNER, job_id: str | None = None) -> JobRecord:
+def make_job(conversation_id: str, user_id: str = OWNER, job_id: str | None = None) -> JobRecord:
     return JobRecord(
         id=job_id or memory_controller.new_id(),
         query="evaluate vector databases",
-        client_id=client_id,
+        user_id=user_id,
         conversation_id=conversation_id,
         request_id="req-" + memory_controller.new_id()[:8],
         created_at=time.time(),

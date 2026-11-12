@@ -20,3 +20,5 @@ class Runtime(BaseModel):
     jobs: dict[str, JobRecord] = Field(default_factory=dict)
     mongo_client: Any = None
     mongo_db: Any = None
+    jwt_secret: str = Field(default="", repr=False)
+    login_failures: dict[str, list[float]] = Field(default_factory=dict)

@@ -189,6 +189,31 @@ td:first-child{font-weight:600;white-space:nowrap}
 .foot a{text-decoration:none;border-bottom:1px solid var(--line)}
 .foot a:hover{color:var(--accent-text)}
 
+.auth-screen{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px;background:var(--bg)}
+.auth-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:32px 28px;box-shadow:var(--shadow)}
+.auth-brand{justify-content:center;margin-bottom:18px}
+.auth-card h1{font-family:var(--serif);font-weight:400;font-size:28px;text-align:center;line-height:1.2}
+.auth-sub{color:var(--muted);text-align:center;margin:6px 0 18px;font-size:14px}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);border-radius:12px;padding:4px;margin-bottom:18px}
+.auth-tab{border:none;background:transparent;padding:8px;border-radius:9px;font-weight:600;font-size:14px;color:var(--muted)}
+.auth-tab.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(31,29,26,.1)}
+.field{display:block;margin-bottom:14px}
+.field span{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.field em{font-weight:400;color:var(--muted);font-style:normal}
+.field input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:16px;outline:none;transition:border-color .15s,box-shadow .15s}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(234,122,43,.14)}
+.remember{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:12px}
+.remember input{accent-color:var(--accent)}
+.auth-error{min-height:18px;color:var(--bad);font-size:13px;margin-bottom:8px}
+.auth-submit{width:100%;padding:12px;border:none;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:600;font-size:15px;transition:background .15s}
+.auth-submit:hover{background:var(--accent-hover)}
+.auth-submit:disabled{opacity:.6;cursor:default}
+.auth-foot{text-align:center;color:var(--muted);font-size:12px;margin-top:16px}
+.user-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.user-avatar{flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:13px}
+.user-email{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ink)}
+.btn-ghost.small{padding:4px 10px;font-size:12px}
+.foot-note{font-size:11.5px;color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;box-shadow:var(--shadow);z-index:50;max-width:90vw}
 
 @media (max-width:899px){
@@ -210,7 +235,28 @@ td:first-child{font-weight:600;white-space:nowrap}
 </style>
 </head>
 <body>
-<div class="shell">
+<div class="auth-screen hidden" id="auth-screen">
+  <div class="auth-card">
+    <div class="brand auth-brand"><span class="brand-mark">RM</span>ResearchMind</div>
+    <h1 id="auth-title">Welcome back</h1>
+    <p class="auth-sub" id="auth-sub">Sign in to see your chats.</p>
+    <div class="auth-tabs" role="tablist">
+      <button class="auth-tab active" id="tab-login" type="button" role="tab" aria-selected="true">Log in</button>
+      <button class="auth-tab" id="tab-register" type="button" role="tab" aria-selected="false">Create account</button>
+    </div>
+    <form id="auth-form" novalidate>
+      <label class="field hidden" id="name-field"><span>Name <em>(optional)</em></span><input id="auth-name" type="text" autocomplete="name" maxlength="60"></label>
+      <label class="field"><span>Email</span><input id="auth-email" type="email" autocomplete="email" required></label>
+      <label class="field"><span>Password</span><input id="auth-password" type="password" autocomplete="current-password" required></label>
+      <label class="remember"><input id="auth-remember" type="checkbox" checked>Keep me signed in on this device</label>
+      <p class="auth-error" id="auth-error" role="alert"></p>
+      <button class="auth-submit" id="auth-submit" type="submit">Log in</button>
+    </form>
+    <p class="auth-foot">Your chats are private to your account.</p>
+  </div>
+</div>
+
+<div class="shell hidden" id="shell">
   <aside class="sidebar" id="sidebar" aria-label="Chat history">
     <div class="sidebar-inner">
       <div class="sidebar-head">
@@ -219,7 +265,14 @@ td:first-child{font-weight:600;white-space:nowrap}
       </div>
       <button class="new-chat-btn" id="new-chat" type="button"><span data-icon="plus" data-size="16"></span>New chat</button>
       <nav class="chat-list" id="chat-list" aria-label="Past chats"></nav>
-      <p class="sidebar-foot">Chats are saved on the server and expire automatically.</p>
+      <div class="sidebar-foot">
+        <div class="user-row">
+          <span class="user-avatar" id="user-initial" aria-hidden="true"></span>
+          <span class="user-email" id="user-email"></span>
+          <button class="btn-ghost small" id="logout" type="button">Log out</button>
+        </div>
+        <p class="foot-note">Chats are private to your account and expire automatically.</p>
+      </div>
     </div>
   </aside>
   <div class="backdrop" id="backdrop"></div>
@@ -275,8 +328,8 @@ td:first-child{font-weight:600;white-space:nowrap}
 
   const PROD_API = "https://researchmind-ai-production.up.railway.app";
   const PREFS_KEY = "researchmind.prefs.v1";
-  const LEGACY_CHAT_KEY = "researchmind.chat.v1";
-  const CLIENT_KEY = "researchmind.client";
+  const AUTH_KEY = "researchmind.auth.v1";
+  const MAX_STREAM_FAILURES = 4;
   const HISTORY_LIMIT = 50;
   const LIST_PAGE_SIZE = 20;
   const SIDEBAR_POLL_MS = 3000;
@@ -289,6 +342,7 @@ td:first-child{font-weight:600;white-space:nowrap}
   const TOAST_MS = 4000;
   const DESKTOP_QUERY = "(min-width: 900px)";
   const SVG_NS = "http://www.w3.org/2000/svg";
+  const API = resolveApiBase();
   const TERMINAL = new Set(["completed", "failed", "cancelled", "interrupted"]);
   const EVENT_NAMES = ["job_queued", "job_started", "routed", "queue_wait", "research_started", "node_started", "node_completed", "token", "job_completed", "job_failed", "job_cancelled"];
 
@@ -336,11 +390,32 @@ td:first-child{font-weight:600;white-space:nowrap}
   const plusEl = $("#plus");
   const menuEl = $("#menu");
   const toastEl = $("#toast");
+  const shellEl = $("#shell");
+  const authScreenEl = $("#auth-screen");
+  const authFormEl = $("#auth-form");
+  const authTitleEl = $("#auth-title");
+  const authSubEl = $("#auth-sub");
+  const authNameField = $("#name-field");
+  const authNameEl = $("#auth-name");
+  const authEmailEl = $("#auth-email");
+  const authPasswordEl = $("#auth-password");
+  const authRememberEl = $("#auth-remember");
+  const authErrorEl = $("#auth-error");
+  const authSubmitEl = $("#auth-submit");
+  const tabLoginEl = $("#tab-login");
+  const tabRegisterEl = $("#tab-register");
+  const userEmailEl = $("#user-email");
+  const userInitialEl = $("#user-initial");
 
   const desktopMedia = window.matchMedia(DESKTOP_QUERY);
   const view = { conversations: [], nextBefore: null, loaded: false, unavailable: false, offline: false, confirmId: null };
 
-  let state = loadPrefs();
+  let state = { conversationId: null, desktopOpen: true, sidebarOpen: false };
+  let auth = null;
+  let authMode = "login";
+  let refreshPromise = null;
+  let statusTimer = null;
+  let iconsApplied = false;
   let current = null;
   let starting = false;
   let pending = null;
@@ -357,21 +432,62 @@ td:first-child{font-weight:600;white-space:nowrap}
     return isLocal ? "http://127.0.0.1:8000" : PROD_API;
   }
 
-  function loadClientId() {
-    try {
-      let id = localStorage.getItem(CLIENT_KEY);
-      if (!id || !/^[A-Za-z0-9_-]{16,64}$/.test(id)) {
-        id = uid().replace(/-/g, "");
-        localStorage.setItem(CLIENT_KEY, id);
-      }
-      return id;
-    } catch (error) {
-      return uid().replace(/-/g, "");
-    }
+
+  async function rawFetch(path, options, token) {
+    const headers = { ...(options.headers || {}) };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return fetch(`${API}${path}`, { ...options, headers });
   }
 
-  function apiFetch(path, options = {}) {
-    return fetch(`${API}${path}`, { ...options, headers: { "X-Client-Id": CLIENT_ID, ...(options.headers || {}) } });
+  async function exchangeRefreshToken() {
+    const latest = readAuth();
+    if (latest) auth = latest;
+    if (!auth) return "denied";
+    let res;
+    try {
+      res = await fetch(`${API}/api/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: auth.refresh_token }),
+      });
+    } catch (error) {
+      return "error";
+    }
+    if (res.status === 401 || res.status === 403) return "denied";
+    if (!res.ok) return "error";
+    const body = await res.json();
+    writeAuth({ access_token: body.access_token, refresh_token: body.refresh_token, user: body.user, remember: auth.remember });
+    return "ok";
+  }
+
+  function refreshTokens(failedToken) {
+    if (refreshPromise) return refreshPromise;
+    const run = async () => {
+      const latest = readAuth();
+      if (latest && latest.access_token !== failedToken) {
+        auth = latest;
+        return "ok";
+      }
+      return exchangeRefreshToken();
+    };
+    const request = navigator.locks ? navigator.locks.request("researchmind-refresh", run) : run();
+    refreshPromise = request.finally(() => {
+      refreshPromise = null;
+    });
+    return refreshPromise;
+  }
+
+  async function apiFetch(path, options = {}) {
+    const token = auth ? auth.access_token : null;
+    const response = await rawFetch(path, options, token);
+    if (response.status !== 401 || !auth) return response;
+    const outcome = await refreshTokens(token);
+    if (outcome === "denied") {
+      handleSignedOut("Your session expired. Please sign in again.");
+      return response;
+    }
+    if (outcome !== "ok") return response;
+    return rawFetch(path, options, auth.access_token);
   }
 
   function el(tag, props, ...children) {
@@ -400,9 +516,6 @@ td:first-child{font-weight:600;white-space:nowrap}
     return typeof value === "string" && /^[a-z]+$/.test(value) ? value : "";
   }
 
-  function uid() {
-    return window.crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  }
 
   function parseData(raw) {
     try {
@@ -419,8 +532,6 @@ td:first-child{font-weight:600;white-space:nowrap}
     return error && error.message ? error.message : "Something went wrong.";
   }
 
-  const API = resolveApiBase();
-  const CLIENT_ID = loadClientId();
 
 
   function updateWelcome() {
@@ -741,24 +852,87 @@ td:first-child{font-weight:600;white-space:nowrap}
   }
 
   function beginJob(progress, active) {
-    const ctx = { job: active, es: null, progress, pollTimer: null };
+    const ctx = { job: active, controller: null, progress, pollTimer: null };
     current = ctx;
     setBusy(true);
     return ctx;
   }
 
-  function openStream(ctx) {
-    const es = new EventSource(`${API}${ctx.job.stream_url}?client_id=${CLIENT_ID}`);
-    ctx.es = es;
-    for (const name of EVENT_NAMES) {
-      es.addEventListener(name, (event) => handleJobEvent(ctx, name, parseData(event.data)));
+  function sleep(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+
+  function parseSseFrame(frame) {
+    let event = "message";
+    let id = null;
+    const dataLines = [];
+    for (const line of frame.split(/\r?\n/)) {
+      if (!line || line.startsWith(":")) continue;
+      const separator = line.indexOf(":");
+      const field = separator === -1 ? line : line.slice(0, separator);
+      const value = separator === -1 ? "" : line.slice(separator + 1).replace(/^ /, "");
+      if (field === "event") event = value;
+      else if (field === "id") id = value;
+      else if (field === "data") dataLines.push(value);
     }
-    es.onopen = () => ctx.progress.setNote("");
-    es.onerror = () => {
+    return dataLines.length ? { event, id, data: parseData(dataLines.join("\n")) } : null;
+  }
+
+  async function consumeStream(ctx) {
+    ctx.controller = new AbortController();
+    let lastSeq = 0;
+    let failures = 0;
+    while (current === ctx) {
+      let received = false;
+      try {
+        const res = await apiFetch(ctx.job.stream_url, {
+          headers: { Accept: "text/event-stream", "Last-Event-ID": String(lastSeq) },
+          signal: ctx.controller.signal,
+        });
+        if (res.status === 404) {
+          startPolling(ctx);
+          return;
+        }
+        if (!res.ok || !res.body) throw new Error(`Stream failed (${res.status})`);
+        ctx.progress.setNote("");
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let boundary = buffer.indexOf("\n\n");
+          while (boundary !== -1) {
+            const frame = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+            const parsed = parseSseFrame(frame);
+            if (parsed) {
+              received = true;
+              if (parsed.id) lastSeq = Number(parsed.id) || lastSeq;
+              handleJobEvent(ctx, parsed.event, parsed.data);
+              if (current !== ctx) return;
+            }
+            boundary = buffer.indexOf("\n\n");
+          }
+        }
+      } catch (error) {
+        if (current !== ctx || error.name === "AbortError") return;
+        failures += 1;
+      }
       if (current !== ctx) return;
-      if (es.readyState === EventSource.CLOSED) startPolling(ctx);
-      else ctx.progress.setNote("Connection interrupted. Reconnecting…");
-    };
+      failures = received ? 0 : failures + 1;
+      if (failures >= MAX_STREAM_FAILURES) {
+        startPolling(ctx);
+        return;
+      }
+      ctx.progress.setNote("Connection interrupted. Reconnecting…");
+      await sleep(Math.min(1000 * 2 ** failures, 8000));
+    }
+  }
+
+  function openStream(ctx) {
+    consumeStream(ctx).catch((error) => console.warn("The job stream stopped", error));
   }
 
   async function createJob(query) {
@@ -868,28 +1042,29 @@ td:first-child{font-weight:600;white-space:nowrap}
     }
   }
 
+  function prefsKey() {
+    return `${PREFS_KEY}.${auth ? auth.user.user_id : "anonymous"}`;
+  }
+
   function loadPrefs() {
     let saved = {};
-    let legacyConversation = null;
     try {
-      saved = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") || {};
-      const legacy = JSON.parse(localStorage.getItem(LEGACY_CHAT_KEY) || "null");
-      legacyConversation = legacy && typeof legacy.conversationId === "string" ? legacy.conversationId : null;
-      localStorage.removeItem(LEGACY_CHAT_KEY);
+      saved = JSON.parse(localStorage.getItem(prefsKey()) || "{}") || {};
     } catch (error) {
       console.warn("Could not read saved preferences", error);
     }
     const desktopOpen = saved.desktopOpen !== false;
     return {
-      conversationId: typeof saved.conversationId === "string" ? saved.conversationId : legacyConversation,
+      conversationId: typeof saved.conversationId === "string" ? saved.conversationId : null,
       desktopOpen,
       sidebarOpen: desktopMedia.matches ? desktopOpen : false,
     };
   }
 
   function savePrefs() {
+    if (!auth) return;
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ conversationId: state.conversationId, desktopOpen: state.desktopOpen }));
+      localStorage.setItem(prefsKey(), JSON.stringify({ conversationId: state.conversationId, desktopOpen: state.desktopOpen }));
     } catch (error) {
       console.warn("Could not save preferences", error);
     }
@@ -940,7 +1115,7 @@ td:first-child{font-weight:600;white-space:nowrap}
     const ctx = current;
     current = null;
     if (ctx) {
-      if (ctx.es) ctx.es.close();
+      if (ctx.controller) ctx.controller.abort();
       if (ctx.pollTimer) clearInterval(ctx.pollTimer);
       ctx.progress.destroy();
       ctx.progress.root.remove();
@@ -1353,8 +1528,151 @@ td:first-child{font-weight:600;white-space:nowrap}
     applySidebar();
   });
 
-  async function init() {
-    applyIcons();
+  function readAuth() {
+    for (const store of [sessionStorage, localStorage]) {
+      try {
+        const raw = JSON.parse(store.getItem(AUTH_KEY) || "null");
+        if (raw && raw.access_token && raw.refresh_token && raw.user) return { ...raw, remember: store === localStorage };
+      } catch (error) {
+        console.warn("Could not read the saved session", error);
+      }
+    }
+    return null;
+  }
+
+  function writeAuth(next) {
+    auth = next;
+    const target = next.remember ? localStorage : sessionStorage;
+    const other = next.remember ? sessionStorage : localStorage;
+    try {
+      target.setItem(AUTH_KEY, JSON.stringify({ access_token: next.access_token, refresh_token: next.refresh_token, user: next.user }));
+      other.removeItem(AUTH_KEY);
+    } catch (error) {
+      console.warn("Could not save the session", error);
+    }
+  }
+
+  function clearAuth() {
+    auth = null;
+    try {
+      localStorage.removeItem(AUTH_KEY);
+      sessionStorage.removeItem(AUTH_KEY);
+    } catch (error) {
+      console.warn("Could not clear the saved session", error);
+    }
+  }
+
+  function resetView() {
+    clearTimeout(sidebarTimer);
+    sidebarTimer = null;
+    view.conversations = [];
+    view.nextBefore = null;
+    view.loaded = false;
+    view.unavailable = false;
+    view.offline = false;
+    view.confirmId = null;
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    const registering = mode === "register";
+    tabLoginEl.classList.toggle("active", !registering);
+    tabRegisterEl.classList.toggle("active", registering);
+    tabLoginEl.setAttribute("aria-selected", String(!registering));
+    tabRegisterEl.setAttribute("aria-selected", String(registering));
+    authNameField.classList.toggle("hidden", !registering);
+    authTitleEl.textContent = registering ? "Create your account" : "Welcome back";
+    authSubEl.textContent = registering ? "Your chats stay private to your account." : "Sign in to see your chats.";
+    authSubmitEl.textContent = registering ? "Create account" : "Log in";
+    authPasswordEl.setAttribute("autocomplete", registering ? "new-password" : "current-password");
+    authErrorEl.textContent = "";
+  }
+
+  function setAuthBusy(busy) {
+    authSubmitEl.disabled = busy;
+    authSubmitEl.textContent = busy ? "Please wait…" : authMode === "register" ? "Create account" : "Log in";
+  }
+
+  function showLogin(message) {
+    shellEl.classList.add("hidden");
+    authScreenEl.classList.remove("hidden");
+    setAuthMode("login");
+    authErrorEl.textContent = message || "";
+    authPasswordEl.value = "";
+    setTimeout(() => authEmailEl.focus(), 0);
+  }
+
+  function showApp() {
+    authScreenEl.classList.add("hidden");
+    shellEl.classList.remove("hidden");
+  }
+
+  function handleSignedOut(message) {
+    detachCurrent();
+    clearAuth();
+    resetView();
+    messagesEl.replaceChildren();
+    showLogin(message);
+  }
+
+  function validateAuthInput(email, password) {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) return "Enter a valid email address.";
+    if (authMode === "register" && password.length < 8) return "Password must be at least 8 characters.";
+    if (!password) return "Enter your password.";
+    return "";
+  }
+
+  async function submitAuth(event) {
+    event.preventDefault();
+    const email = authEmailEl.value.trim().toLowerCase();
+    const password = authPasswordEl.value;
+    const problem = validateAuthInput(email, password);
+    authErrorEl.textContent = problem;
+    if (problem) return;
+    setAuthBusy(true);
+    try {
+      const payload = authMode === "register" ? { email, password, name: authNameEl.value.trim() || null } : { email, password };
+      const res = await fetch(`${API}/api/auth/${authMode === "register" ? "register" : "login"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
+      writeAuth({ access_token: body.access_token, refresh_token: body.refresh_token, user: body.user, remember: authRememberEl.checked });
+      authPasswordEl.value = "";
+      setAuthBusy(false);
+      await startApp();
+    } catch (error) {
+      authErrorEl.textContent = errorText(error);
+      setAuthBusy(false);
+    }
+  }
+
+  async function logout() {
+    const refreshToken = auth ? auth.refresh_token : null;
+    handleSignedOut("");
+    if (!refreshToken) return;
+    try {
+      await fetch(`${API}/api/auth/logout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+    } catch (error) {
+      console.warn("Could not revoke the session on the server", error);
+    }
+  }
+
+  async function startApp() {
+    showApp();
+    state = loadPrefs();
+    detachCurrent();
+    resetView();
+    messagesEl.replaceChildren();
+    userEmailEl.textContent = auth.user.email;
+    userEmailEl.title = auth.user.email;
+    userInitialEl.textContent = (auth.user.name || auth.user.email).trim().charAt(0).toUpperCase();
     setBusy(false);
     applySidebar();
     renderExamples();
@@ -1362,7 +1680,7 @@ td:first-child{font-weight:600;white-space:nowrap}
     renderSidebar();
     updateWelcome();
     refreshStatus();
-    setInterval(refreshStatus, STATUS_REFRESH_MS);
+    if (!statusTimer) statusTimer = setInterval(refreshStatus, STATUS_REFRESH_MS);
     await refreshConversations();
     if (state.conversationId && !view.unavailable && !view.offline) {
       await openConversation(state.conversationId, { initial: true });
@@ -1372,7 +1690,39 @@ td:first-child{font-weight:600;white-space:nowrap}
     inputEl.focus();
   }
 
-  init();
+  function boot() {
+    if (!iconsApplied) {
+      applyIcons();
+      iconsApplied = true;
+    }
+    setBusy(false);
+    auth = readAuth();
+    if (auth) startApp();
+    else showLogin("");
+  }
+
+  tabLoginEl.addEventListener("click", () => setAuthMode("login"));
+  tabRegisterEl.addEventListener("click", () => setAuthMode("register"));
+  authFormEl.addEventListener("submit", submitAuth);
+  $("#logout").addEventListener("click", logout);
+  window.addEventListener("storage", (event) => {
+    if (event.storageArea !== localStorage || event.key !== AUTH_KEY) return;
+    if (!auth && event.newValue) {
+      auth = readAuth();
+      if (auth) startApp();
+      return;
+    }
+    if (!auth || !auth.remember) return;
+    if (!event.newValue) {
+      handleSignedOut("You were signed out in another tab.");
+      return;
+    }
+    const next = readAuth();
+    if (next && next.user.user_id !== auth.user.user_id) location.reload();
+    else if (next) auth = next;
+  });
+
+  boot();
 })();
 </script>
 </body>

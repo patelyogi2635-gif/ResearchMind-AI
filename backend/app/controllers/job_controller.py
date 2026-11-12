@@ -117,8 +117,8 @@ async def _run_pipeline(
 
 async def _load_job_context(runtime: Runtime, job: JobRecord) -> ConversationContext | None:
     """Loads conversation context for a job that belongs to a stored conversation."""
-    if job.conversation_id and job.client_id and memory_available(runtime):
-        return await load_context(runtime, job.conversation_id, job.client_id)
+    if job.conversation_id and job.user_id and memory_available(runtime):
+        return await load_context(runtime, job.conversation_id, job.user_id)
     return None
 
 
@@ -212,7 +212,7 @@ def submit_job(
     query: str,
     *,
     job_id: str | None = None,
-    client_id: str | None = None,
+    user_id: str | None = None,
     conversation_id: str | None = None,
     user_message_id: str | None = None,
     request_id: str | None = None,
@@ -225,7 +225,7 @@ def submit_job(
         runtime: Shared runtime.
         query: The user's message.
         job_id: Optional pre-generated job id.
-        client_id: The anonymous browser id that owns the job.
+        user_id: The authenticated user id that owns the job.
         conversation_id: The stored conversation the job belongs to.
         user_message_id: The id of the saved user message.
         request_id: The HTTP request id, for log correlation.
@@ -246,7 +246,7 @@ def submit_job(
     job = JobRecord(
         id=job_id or new_id(),
         query=query,
-        client_id=client_id,
+        user_id=user_id,
         conversation_id=conversation_id,
         user_message_id=user_message_id,
         request_id=request_id,
@@ -267,7 +267,7 @@ def submit_job(
 async def submit_chat_job(
     runtime: Runtime,
     query: str,
-    client_id: str | None,
+    user_id: str | None,
     conversation_id: str | None,
     request_id: str | None,
 ) -> JobRecord:
@@ -280,7 +280,7 @@ async def submit_chat_job(
     Args:
         runtime: Shared runtime.
         query: The user's message.
-        client_id: The anonymous browser id, or None.
+        user_id: The authenticated user id, or None.
         conversation_id: The conversation to continue, or None for a new one.
         request_id: The HTTP request id.
 
@@ -291,16 +291,16 @@ async def submit_chat_job(
         AppError: With status 409 when the conversation already has a running
             job, or 429 when the service is busy.
     """
-    stateless = partial(submit_job, runtime, query, client_id=client_id, request_id=request_id)
-    if client_id is None or not memory_available(runtime):
+    stateless = partial(submit_job, runtime, query, user_id=user_id, request_id=request_id)
+    if user_id is None or not memory_available(runtime):
         return stateless()
 
-    conversation = await ensure_conversation(runtime, client_id, conversation_id, query)
+    conversation = await ensure_conversation(runtime, user_id, conversation_id, query)
     if conversation is None:
         return stateless()
 
     job_id = new_id()
-    acquired = await acquire_conversation(runtime, conversation["_id"], client_id, job_id)
+    acquired = await acquire_conversation(runtime, conversation["_id"], user_id, job_id)
     if acquired is False:
         raise AppError(
             "Please wait for the current answer to finish.",
@@ -312,7 +312,7 @@ async def submit_chat_job(
 
     try:
         user_message_id = await record_job_start(
-            runtime, job_id, conversation["_id"], client_id, request_id, query
+            runtime, job_id, conversation["_id"], user_id, request_id, query
         )
         if user_message_id is None:
             await release_conversation(runtime, conversation["_id"], job_id)
@@ -321,7 +321,7 @@ async def submit_chat_job(
             runtime,
             query,
             job_id=job_id,
-            client_id=client_id,
+            user_id=user_id,
             conversation_id=conversation["_id"],
             user_message_id=user_message_id,
             request_id=request_id,
@@ -331,21 +331,21 @@ async def submit_chat_job(
         raise
 
 
-def _owns(job: JobRecord, client_id: str | None) -> bool:
+def _owns(job: JobRecord, user_id: str | None) -> bool:
     """Returns whether the caller may access the job.
 
     Jobs created without a client id are open to anyone who knows the job id.
     """
-    return job.client_id is None or job.client_id == client_id
+    return job.user_id is None or job.user_id == user_id
 
 
-def get_job(runtime: Runtime, job_id: str, client_id: str | None = None) -> JobRecord:
+def get_job(runtime: Runtime, job_id: str, user_id: str | None = None) -> JobRecord:
     """Looks up an in-memory job by id for its owner.
 
     Args:
         runtime: Shared runtime.
         job_id: The job identifier.
-        client_id: The anonymous browser id of the caller.
+        user_id: The authenticated user id of the caller.
 
     Returns:
         The job record.
@@ -355,18 +355,18 @@ def get_job(runtime: Runtime, job_id: str, client_id: str | None = None) -> JobR
             to another client.
     """
     job = runtime.jobs.get(job_id)
-    if job is None or not _owns(job, client_id):
+    if job is None or not _owns(job, user_id):
         raise AppError("Job not found or expired", status_code=404, code="job_not_found")
     return job
 
 
-async def get_job_view(runtime: Runtime, job_id: str, client_id: str | None) -> JobResponse:
+async def get_job_view(runtime: Runtime, job_id: str, user_id: str | None) -> JobResponse:
     """Returns a job's public view, from memory or else from MongoDB.
 
     Args:
         runtime: Shared runtime.
         job_id: The job identifier.
-        client_id: The anonymous browser id of the caller.
+        user_id: The authenticated user id of the caller.
 
     Returns:
         The job view.
@@ -375,15 +375,15 @@ async def get_job_view(runtime: Runtime, job_id: str, client_id: str | None) -> 
         AppError: With status 404 when the job is not found for this client.
     """
     job = runtime.jobs.get(job_id)
-    if job is not None and _owns(job, client_id):
+    if job is not None and _owns(job, user_id):
         return build_job_response(job)
-    stored = await load_job_response(runtime, job_id, client_id) if client_id else None
+    stored = await load_job_response(runtime, job_id, user_id) if user_id else None
     if stored is None:
         raise AppError("Job not found or expired", status_code=404, code="job_not_found")
     return stored
 
 
-async def cancel_job(runtime: Runtime, job_id: str, client_id: str | None = None) -> JobRecord:
+async def cancel_job(runtime: Runtime, job_id: str, user_id: str | None = None) -> JobRecord:
     """Cancels a queued or running job and waits until it has stopped.
 
     Cancelling a finished job is a no-op.
@@ -391,7 +391,7 @@ async def cancel_job(runtime: Runtime, job_id: str, client_id: str | None = None
     Args:
         runtime: Shared runtime.
         job_id: The job identifier.
-        client_id: The anonymous browser id of the caller.
+        user_id: The authenticated user id of the caller.
 
     Returns:
         The job record in its final state.
@@ -399,7 +399,7 @@ async def cancel_job(runtime: Runtime, job_id: str, client_id: str | None = None
     Raises:
         AppError: With status 404 if the job does not exist or has expired.
     """
-    job = get_job(runtime, job_id, client_id)
+    job = get_job(runtime, job_id, user_id)
     if job.task is not None and not job.task.done():
         job.task.cancel()
         await asyncio.gather(job.task, return_exceptions=True)
@@ -407,12 +407,12 @@ async def cancel_job(runtime: Runtime, job_id: str, client_id: str | None = None
     return job
 
 
-async def cancel_job_view(runtime: Runtime, job_id: str, client_id: str | None) -> JobResponse:
+async def cancel_job_view(runtime: Runtime, job_id: str, user_id: str | None) -> JobResponse:
     """Cancels a job if it is still in memory, otherwise returns its stored state."""
     job = runtime.jobs.get(job_id)
-    if job is not None and _owns(job, client_id):
-        return build_job_response(await cancel_job(runtime, job_id, client_id))
-    return await get_job_view(runtime, job_id, client_id)
+    if job is not None and _owns(job, user_id):
+        return build_job_response(await cancel_job(runtime, job_id, user_id))
+    return await get_job_view(runtime, job_id, user_id)
 
 
 async def cancel_conversation_jobs(runtime: Runtime, conversation_id: str) -> int:
@@ -570,14 +570,14 @@ async def stream_stored_job(view: JobResponse) -> AsyncIterator[str]:
 
 
 async def open_job_stream(
-    runtime: Runtime, job_id: str, client_id: str | None, start_index: int
+    runtime: Runtime, job_id: str, user_id: str | None, start_index: int
 ) -> AsyncIterator[str]:
     """Returns the SSE frame iterator for a job, live or from storage.
 
     Args:
         runtime: Shared runtime.
         job_id: The job identifier.
-        client_id: The anonymous browser id of the caller.
+        user_id: The authenticated user id of the caller.
         start_index: Number of events the client has already received.
 
     Returns:
@@ -587,9 +587,9 @@ async def open_job_stream(
         AppError: With status 404 when the job is not found for this client.
     """
     job = runtime.jobs.get(job_id)
-    if job is not None and _owns(job, client_id):
+    if job is not None and _owns(job, user_id):
         return stream_job_events(runtime, job, start_index)
-    return stream_stored_job(await get_job_view(runtime, job_id, client_id))
+    return stream_stored_job(await get_job_view(runtime, job_id, user_id))
 
 
 def build_job_created(job: JobRecord, base_path: str) -> JobCreatedResponse:

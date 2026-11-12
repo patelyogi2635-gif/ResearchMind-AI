@@ -14,12 +14,12 @@ from app.controllers.writer_controller import WRITER_MAX_TOKENS, WRITER_TEMPERAT
 from app.core.llm import get_chat_llm, get_llm, get_router_llm
 from app.core.mongo import connect_mongo
 from app.core.runtime import close_runtime, create_runtime
-from app.routers import conversations, health, research
+from app.routers import auth, conversations, health, research
 
 logger = logging.getLogger(__name__)
 
 APP_TITLE = "ResearchMind AI - R&D Assistant"
-APP_VERSION = "0.5.0"
+APP_VERSION = "0.6.0"
 
 
 @asynccontextmanager
@@ -60,6 +60,12 @@ async def lifespan(app: FastAPI):
         settings.max_pending_jobs,
     )
 
+    logger.info(
+        "startup.auth ready algorithm=HS256 access_minutes=%d refresh_days=%d registration=%s",
+        settings.access_token_minutes,
+        settings.refresh_token_days,
+        "open" if settings.registration_enabled else "closed",
+    )
     await connect_mongo(runtime)
     await recover_interrupted_jobs(runtime)
 
@@ -118,13 +124,14 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
+        allow_headers=["Authorization", "Content-Type", "Accept", "Last-Event-ID"],
         expose_headers=["X-Request-ID"],
     )
 
     register_exception_handlers(app)
 
     app.include_router(health.router, prefix="/api", tags=["health"])
+    app.include_router(auth.router, prefix="/api", tags=["auth"])
     app.include_router(research.router, prefix="/api", tags=["research"])
     app.include_router(conversations.router, prefix="/api", tags=["conversations"])
     return app

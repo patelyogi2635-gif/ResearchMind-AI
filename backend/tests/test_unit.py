@@ -7,6 +7,7 @@ os.environ.setdefault("GROQ_API_KEY", "test-groq")
 os.environ.setdefault("TAVILY_API_KEY", "test-tavily")
 os.environ.setdefault("GITHUB_TOKEN", "test-github")
 os.environ.setdefault("MONGODB_ENABLED", "false")
+os.environ.setdefault("JWT_SECRET", "t" * 40)
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -27,7 +28,8 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.llm import rate_limit_delay
 from app.core.prompts import wrap_user_message
-from app.core.runtime import close_runtime, create_runtime
+from app.core.runtime import close_runtime, create_runtime, get_current_user_id
+from app.core.security import create_access_token
 from app.main import app
 from app.schemas.chat import Intent, RouteDecision, UnsafeCategory
 from app.schemas.jobs import JobStatus
@@ -481,8 +483,20 @@ def test_purge_removes_expired_finished_jobs():
     assert remaining == 0
 
 
+USER_ID = "u" * 32
+OTHER_USER_ID = "o" * 32
+
+
 @pytest.fixture
 def client():
+    app.dependency_overrides[get_current_user_id] = lambda: USER_ID
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.pop(get_current_user_id, None)
+
+
+@pytest.fixture
+def anonymous_client():
     with TestClient(app) as test_client:
         yield test_client
 
@@ -516,8 +530,12 @@ def test_api_hides_internals_on_unexpected_error(monkeypatch):
         "app.routers.research.run_research_blocking",
         AsyncMock(side_effect=RuntimeError("secret internal detail")),
     )
-    with TestClient(app, raise_server_exceptions=False) as test_client:
-        response = test_client.post("/api/research", json={"query": "evaluate vector databases"})
+    app.dependency_overrides[get_current_user_id] = lambda: USER_ID
+    try:
+        with TestClient(app, raise_server_exceptions=False) as test_client:
+            response = test_client.post("/api/research", json={"query": "evaluate vector databases"})
+    finally:
+        app.dependency_overrides.pop(get_current_user_id, None)
     assert response.status_code == 500
     assert "secret" not in response.text
 
@@ -1104,44 +1122,72 @@ async def test_synthesize_brief_reuses_the_streamed_summary_verbatim(monkeypatch
     assert "The streamed summary." in result["report"]
 
 
-def test_api_conversation_endpoints_require_a_valid_client_id(client):
-    missing = client.get("/api/conversations")
-    invalid = client.get("/api/conversations", headers={"X-Client-Id": "short"})
-    assert missing.status_code == 400
-    assert missing.json()["error"]["code"] == "client_id_required"
-    assert invalid.status_code == 400
-    assert invalid.json()["error"]["code"] == "invalid_client_id"
+def bearer(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_api_protected_endpoints_require_a_token(anonymous_client):
+    calls = [
+        anonymous_client.get("/api/conversations"),
+        anonymous_client.get("/api/lookup/anything"),
+        anonymous_client.get("/api/auth/me"),
+        anonymous_client.post("/api/research/jobs", json={"query": "evaluate vector databases"}),
+        anonymous_client.post("/api/research", json={"query": "evaluate vector databases"}),
+        anonymous_client.get("/api/research/jobs/abc"),
+    ]
+    for response in calls:
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "not_authenticated"
+
+
+def test_api_rejects_garbage_and_expired_tokens(anonymous_client):
+    secret = get_settings().jwt_secret
+    expired, _ = create_access_token(USER_ID, secret, -1)
+    garbage = anonymous_client.get("/api/conversations", headers=bearer("not-a-token"))
+    stale = anonymous_client.get("/api/conversations", headers=bearer(expired))
+    assert garbage.status_code == 401 and garbage.json()["error"]["code"] == "invalid_token"
+    assert stale.status_code == 401 and stale.json()["error"]["code"] == "token_expired"
+
+
+def test_api_accepts_a_valid_token_and_leaves_public_endpoints_open(anonymous_client):
+    token, _ = create_access_token(USER_ID, get_settings().jwt_secret, 30)
+    authenticated = anonymous_client.get("/api/conversations", headers=bearer(token))
+    assert authenticated.status_code == 503
+    assert authenticated.json()["error"]["code"] == "memory_unavailable"
+    assert anonymous_client.get("/api/health").status_code == 200
+    assert anonymous_client.get("/api/health/ready").status_code == 200
 
 
 def test_api_conversation_endpoints_report_unavailable_memory(client):
-    headers = {"X-Client-Id": "a" * 32}
     for response in (
-        client.get("/api/conversations", headers=headers),
-        client.get("/api/conversations/abcdefgh1234", headers=headers),
-        client.get("/api/lookup/anything", headers=headers),
-        client.delete("/api/conversations/abcdefgh1234", headers=headers),
+        client.get("/api/conversations"),
+        client.get("/api/conversations/abcdefgh1234"),
+        client.get("/api/lookup/anything"),
+        client.delete("/api/conversations/abcdefgh1234"),
     ):
         assert response.status_code == 503
         assert response.json()["error"]["code"] == "memory_unavailable"
 
 
-def test_api_job_without_memory_is_stateless_but_still_owned_by_its_client(client, monkeypatch):
+def test_api_jobs_belong_to_the_user_who_created_them(client, monkeypatch):
     monkeypatch.setattr(job_controller, "run_research", AsyncMock(return_value=make_response()))
-    owner = {"X-Client-Id": "a" * 32}
-    stranger = {"X-Client-Id": "b" * 32}
-    created = client.post("/api/research/jobs", json={"query": "evaluate vector databases"}, headers=owner)
+    created = client.post("/api/research/jobs", json={"query": "evaluate vector databases"})
     assert created.status_code == 202
     body = created.json()
     assert body["conversation_id"] is None
-    assert client.get(body["status_url"], headers=stranger).status_code == 404
-    assert client.get(body["stream_url"], headers=stranger).status_code == 404
-    assert client.get(body["status_url"], headers=owner).status_code == 200
+
+    app.dependency_overrides[get_current_user_id] = lambda: OTHER_USER_ID
+    assert client.get(body["status_url"]).status_code == 404
+    assert client.get(body["stream_url"]).status_code == 404
+    assert client.delete(body["status_url"]).status_code == 404
+
+    app.dependency_overrides[get_current_user_id] = lambda: USER_ID
+    assert client.get(body["status_url"]).status_code == 200
 
 
 def test_api_rejects_a_malformed_conversation_id(client):
     response = client.post(
         "/api/research/jobs",
         json={"query": "evaluate vector databases", "conversation_id": "bad id!"},
-        headers={"X-Client-Id": "a" * 32},
     )
     assert response.status_code == 422

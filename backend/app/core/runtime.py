@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -11,11 +10,11 @@ from langchain_core.runnables import RunnableConfig
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.mongo import close_mongo
+from app.core.security import MIN_JWT_SECRET_CHARS, decode_access_token
 from app.schemas.context import Runtime
 
 logger = logging.getLogger(__name__)
 
-CLIENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
 EmitFn = Callable[[str, dict[str, Any]], Awaitable[None]]
 
 
@@ -30,7 +29,12 @@ def create_runtime(settings: Settings) -> Runtime:
 
     Returns:
         A Runtime holding the HTTP client, concurrency limits and the job registry.
+
+    Raises:
+        ValueError: If the JWT secret is too short to be safe.
     """
+    if len(settings.jwt_secret) < MIN_JWT_SECRET_CHARS:
+        raise ValueError(f"JWT_SECRET must be at least {MIN_JWT_SECRET_CHARS} characters long")
     client = httpx.AsyncClient(
         timeout=httpx.Timeout(
             settings.http_timeout_seconds, connect=settings.http_connect_timeout_seconds
@@ -46,6 +50,7 @@ def create_runtime(settings: Settings) -> Runtime:
         search_semaphore=asyncio.Semaphore(settings.max_concurrent_searches),
         llm_semaphore=asyncio.Semaphore(settings.max_concurrent_llm_calls),
         pipeline_semaphore=asyncio.Semaphore(settings.max_concurrent_pipelines),
+        jwt_secret=settings.jwt_secret,
     )
 
 
@@ -127,42 +132,22 @@ def get_emit(config: RunnableConfig) -> EmitFn:
     return (config.get("configurable") or {}).get("emit") or _noop_emit
 
 
-def get_client_id(request: Request) -> str | None:
-    """FastAPI dependency that reads the anonymous browser id.
+def get_current_user_id(request: Request) -> str:
+    """FastAPI dependency that authenticates the caller from a Bearer token.
 
-    The id comes from the X-Client-Id header, or from the client_id query
-    parameter for EventSource, which cannot send headers.
-
-    Args:
-        request: The incoming request.
-
-    Returns:
-        The validated client id, or None when the client sent none.
-
-    Raises:
-        AppError: With status 400 when the id has an invalid format.
-    """
-    raw = request.headers.get("x-client-id") or request.query_params.get("client_id")
-    if raw is None:
-        return None
-    if not CLIENT_ID_PATTERN.match(raw):
-        raise AppError("Invalid client id", status_code=400, code="invalid_client_id")
-    return raw
-
-
-def require_client_id(request: Request) -> str:
-    """FastAPI dependency for endpoints that need a client id.
+    Verification is stateless (signature and expiry), so it needs no database.
 
     Args:
         request: The incoming request.
 
     Returns:
-        The validated client id.
+        The id of the authenticated user.
 
     Raises:
-        AppError: With status 400 when no valid client id was sent.
+        AppError: With status 401 when the token is missing, invalid or expired.
     """
-    client_id = get_client_id(request)
-    if client_id is None:
-        raise AppError("Client id is required", status_code=400, code="client_id_required")
-    return client_id
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        raise AppError("Authentication required.", status_code=401, code="not_authenticated")
+    runtime = get_app_runtime(request)
+    return decode_access_token(token.strip(), runtime.jwt_secret)

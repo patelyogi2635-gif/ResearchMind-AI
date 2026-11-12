@@ -41,7 +41,7 @@ class JobRecord(BaseModel):
 
     id: str
     query: str
-    client_id: str | None = None
+    user_id: str | None = None
     conversation_id: str | None = None
     user_message_id: str | None = None
     request_id: str | None = None

@@ -11,7 +11,7 @@ from app.controllers.job_controller import (
     run_research_blocking,
     submit_chat_job,
 )
-from app.core.runtime import get_app_runtime, get_client_id
+from app.core.runtime import get_app_runtime, get_current_user_id
 from app.schemas.common import ErrorResponse
 from app.schemas.context import Runtime
 from app.schemas.jobs import JobCreatedResponse, JobResponse
@@ -38,7 +38,12 @@ ERROR_RESPONSES = {
 }
 
 
-@router.post("/research", response_model=ResearchResponse, responses=ERROR_RESPONSES)
+@router.post(
+    "/research",
+    response_model=ResearchResponse,
+    responses=ERROR_RESPONSES,
+    dependencies=[Depends(get_current_user_id)],
+)
 async def create_research(
     payload: ResearchRequest, runtime: Runtime = Depends(get_app_runtime)
 ) -> ResearchResponse:
@@ -61,7 +66,7 @@ async def create_research_job(
     payload: ChatRequest,
     request: Request,
     runtime: Runtime = Depends(get_app_runtime),
-    client_id: str | None = Depends(get_client_id),
+    user_id: str = Depends(get_current_user_id),
 ) -> JobCreatedResponse:
     """Starts a message as a background job and returns its ids immediately.
 
@@ -70,7 +75,7 @@ async def create_research_job(
     conversation_id to use for follow-up questions.
     """
     job = await submit_chat_job(
-        runtime, payload.query, client_id, payload.conversation_id, request.state.request_id
+        runtime, payload.query, user_id, payload.conversation_id, request.state.request_id
     )
     return build_job_created(job, request.url.path)
 
@@ -79,13 +84,13 @@ async def create_research_job(
 async def get_research_job(
     job_id: str,
     runtime: Runtime = Depends(get_app_runtime),
-    client_id: str | None = Depends(get_client_id),
+    user_id: str = Depends(get_current_user_id),
 ) -> JobResponse:
     """Returns a job's status and its result, reply or error once it has finished.
 
     Falls back to MongoDB for jobs that expired from memory or survived a restart.
     """
-    return await get_job_view(runtime, job_id, client_id)
+    return await get_job_view(runtime, job_id, user_id)
 
 
 @router.get("/research/jobs/{job_id}/stream", responses=ERROR_RESPONSES)
@@ -93,16 +98,16 @@ async def stream_research_job(
     job_id: str,
     request: Request,
     runtime: Runtime = Depends(get_app_runtime),
-    client_id: str | None = Depends(get_client_id),
+    user_id: str = Depends(get_current_user_id),
 ) -> StreamingResponse:
     """Streams job progress and answer text as Server-Sent Events.
 
     Supports reconnecting with the Last-Event-ID header to replay missed events.
     Closing the stream does not cancel the job. EventSource clients pass the
-    client_id query parameter because they cannot send headers.
+    user_id query parameter because they cannot send headers.
     """
     start_index = parse_last_event_id(request.headers.get("last-event-id"))
-    frames = await open_job_stream(runtime, job_id, client_id, start_index)
+    frames = await open_job_stream(runtime, job_id, user_id, start_index)
     return StreamingResponse(frames, media_type="text/event-stream", headers=SSE_HEADERS)
 
 
@@ -110,7 +115,7 @@ async def stream_research_job(
 async def cancel_research_job(
     job_id: str,
     runtime: Runtime = Depends(get_app_runtime),
-    client_id: str | None = Depends(get_client_id),
+    user_id: str = Depends(get_current_user_id),
 ) -> JobResponse:
     """Cancels a queued or running job. Cancelling a finished job changes nothing."""
-    return await cancel_job_view(runtime, job_id, client_id)
+    return await cancel_job_view(runtime, job_id, user_id)

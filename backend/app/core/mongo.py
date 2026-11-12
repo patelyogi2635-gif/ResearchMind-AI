@@ -21,12 +21,12 @@ def expiry_time(settings: Settings) -> datetime:
 
 
 async def ensure_indexes(db) -> None:
-    """Creates the indexes used for lookups by id, listing and retention.
+    """Creates the indexes used for lookups by id, listing, accounts and retention.
 
     Args:
         db: The application database.
     """
-    await db.conversations.create_index([("client_id", 1), ("updated_at", -1)], name="client_updated")
+    await db.conversations.create_index([("user_id", 1), ("updated_at", -1)], name="user_updated")
     await db.conversations.create_index("expires_at", expireAfterSeconds=0, name="ttl_expires")
     await db.messages.create_index([("conversation_id", 1), ("created_at", 1)], name="conversation_created")
     await db.messages.create_index([("job_id", 1), ("role", 1)], unique=True, name="job_role_unique")
@@ -35,6 +35,9 @@ async def ensure_indexes(db) -> None:
     await db.jobs.create_index("conversation_id", name="conversation")
     await db.jobs.create_index("request_id", name="request_id")
     await db.jobs.create_index("expires_at", expireAfterSeconds=0, name="ttl_expires")
+    await db.users.create_index("email", unique=True, name="email_unique")
+    await db.sessions.create_index("user_id", name="user")
+    await db.sessions.create_index("expires_at", expireAfterSeconds=0, name="ttl_expires")
 
 
 async def connect_mongo(runtime: Runtime) -> None:

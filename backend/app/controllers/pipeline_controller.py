@@ -92,6 +92,47 @@ def build_pipeline_graph():
 pipeline_graph = build_pipeline_graph()
 
 
+async def run_pipeline_state(
+    runtime: Runtime, query: str, emit: EmitFn, callbacks: list | None = None
+) -> ResearchState:
+    """Runs the research graph and returns its final state.
+
+    The final state keeps the full source snippets, which the API response omits,
+    so evaluation code can inspect exactly what the writer saw.
+
+    Args:
+        runtime: Shared runtime with the HTTP client and concurrency limits.
+        query: The technology topic to evaluate.
+        emit: Async callback receiving (event, data) progress updates.
+        callbacks: Optional LangChain callbacks, for example for token accounting.
+
+    Returns:
+        The final pipeline state.
+
+    Raises:
+        AppError: If research finds no sources, the brief cannot be generated, or
+            the pipeline fails unexpectedly.
+    """
+    state: ResearchState = {
+        "query": query,
+        "sub_questions": [],
+        "search_results": [],
+        "sources": [],
+        "summary": "",
+        "brief": None,
+        "report": "",
+    }
+    config: RunnableConfig = {"configurable": {"runtime": runtime, "emit": emit}}
+    if callbacks:
+        config["callbacks"] = callbacks
+    try:
+        return await pipeline_graph.ainvoke(state, config=config)
+    except AppError:
+        raise
+    except Exception as exc:
+        raise AppError("Research pipeline failed", status_code=502, code="pipeline_failed") from exc
+
+
 async def run_research(runtime: Runtime, query: str, emit: EmitFn) -> ResearchResponse:
     """Runs the full R&D pipeline and builds the API response.
 
@@ -109,22 +150,7 @@ async def run_research(runtime: Runtime, query: str, emit: EmitFn) -> ResearchRe
     """
     started = time.perf_counter()
     logger.info("research.start query=%r", query)
-    state: ResearchState = {
-        "query": query,
-        "sub_questions": [],
-        "search_results": [],
-        "sources": [],
-        "summary": "",
-        "brief": None,
-        "report": "",
-    }
-    config: RunnableConfig = {"configurable": {"runtime": runtime, "emit": emit}}
-    try:
-        final_state = await pipeline_graph.ainvoke(state, config=config)
-    except AppError:
-        raise
-    except Exception as exc:
-        raise AppError("Research pipeline failed", status_code=502, code="pipeline_failed") from exc
+    final_state = await run_pipeline_state(runtime, query, emit)
 
     brief = final_state["brief"]
     if brief is None or not final_state["report"]:
