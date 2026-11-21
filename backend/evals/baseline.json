@@ -1,0 +1,1145 @@
+{
+  "meta": {
+    "timestamp": "2026-11-19 12:34 UTC",
+    "writer_model": "openai/gpt-oss-120b",
+    "chat_model": "openai/gpt-oss-20b",
+    "router_model": "openai/gpt-oss-20b",
+    "judge_model": "openai/gpt-oss-20b",
+    "streaming": true,
+    "partial": false
+  },
+  "summary": {
+    "topics": 24,
+    "succeeded": 24,
+    "success_rate": 1.0,
+    "structure_ok_rate": 1.0,
+    "planner_ok_rate": 1.0,
+    "citation_coverage": 0.9486111111111112,
+    "topic_coverage_rate": 1.0,
+    "groundedness": 0.7769570707070709,
+    "latency_p50_seconds": 13.43382835004013,
+    "latency_p95_seconds": 21.923660840000963,
+    "tokens_mean_total": 6359.041666666667,
+    "tokens_mean_input": 2573.5,
+    "tokens_mean_output": 3785.5416666666665,
+    "sources_mean": 4.083333333333333,
+    "domains_mean": 3.875,
+    "node_seconds_mean": {
+      "decompose_query": 2.2345833333333336,
+      "score_sources": 0.0,
+      "search_github": 0.8283333333333333,
+      "search_web": 2.144999999999999,
+      "select_sources": 0.0,
+      "stream_summary": 1.8008333333333335,
+      "synthesize_brief": 8.959166666666667
+    },
+    "confidence": {
+      "high": 16,
+      "medium": 8
+    },
+    "failures": {}
+  },
+  "results": [
+    {
+      "id": "vector-db",
+      "category": "databases",
+      "query": "Which vector database should we use for 1M documents with hybrid search?",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 17.177459599915892,
+      "node_seconds": {
+        "search_github": 1.04,
+        "decompose_query": 5.13,
+        "search_web": 1.99,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.79,
+        "synthesize_brief": 8.23
+      },
+      "tokens": {
+        "input": 2415,
+        "output": 3812,
+        "total": 6227
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 14,
+        "cited_items": 14,
+        "coverage": 1.0,
+        "distinct_sources_cited": 2
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Pinecone",
+      "groundedness": 0.8125,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Pinecone weakness: Potentially higher cost due to managed pricing",
+        "Pinecone weakness: Vendor lock\u2011in"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "datacamp.com",
+        "firecrawl.dev",
+        "redis.io",
+        "thedataexperts.us"
+      ]
+    },
+    {
+      "id": "agent-frameworks",
+      "category": "ai",
+      "query": "Compare LangGraph, CrewAI and AutoGen for production multi-agent systems",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.7485875999555,
+      "node_seconds": {
+        "search_github": 0.71,
+        "decompose_query": 2.06,
+        "search_web": 1.42,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.46,
+        "synthesize_brief": 8.78
+      },
+      "tokens": {
+        "input": 2453,
+        "output": 4193,
+        "total": 6646
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 12,
+        "cited_items": 12,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "LangGraph",
+      "groundedness": 0.9791666666666666,
+      "claims_judged": 24,
+      "unsupported_examples": [],
+      "sources_count": 4,
+      "domains": [
+        "alicelabs.ai",
+        "emasterlabs.com",
+        "propelius.tech",
+        "trendwiremag.com"
+      ]
+    },
+    {
+      "id": "speaker-diarization",
+      "category": "speech",
+      "query": "Best open-source local speaker diarization and transcription pipeline",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.011390399886295,
+      "node_seconds": {
+        "search_github": 0.8,
+        "decompose_query": 1.94,
+        "search_web": 2.16,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.45,
+        "synthesize_brief": 7.44
+      },
+      "tokens": {
+        "input": 2571,
+        "output": 3708,
+        "total": 6279
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "medium",
+      "recommended": "OpenWhispr Diarization Pipeline (with optional WhisperX transcription integration)",
+      "groundedness": 0.875,
+      "claims_judged": 24,
+      "unsupported_examples": [],
+      "sources_count": 4,
+      "domains": [
+        "github.com",
+        "huggingface.co",
+        "ma.ttias.be",
+        "openwhispr.com"
+      ]
+    },
+    {
+      "id": "task-queues",
+      "category": "backend",
+      "query": "Celery vs Arq vs RQ for async background jobs in a FastAPI service",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 11.077447299845517,
+      "node_seconds": {
+        "search_github": 0.61,
+        "decompose_query": 1.54,
+        "search_web": 2.45,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.05,
+        "synthesize_brief": 6.01
+      },
+      "tokens": {
+        "input": 2515,
+        "output": 3012,
+        "total": 5527
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Celery",
+      "groundedness": 0.5,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "RQ on feature richness: Simple queueing only; missing advanced robustness features such as multi\u2011step workflows and rate limiting",
+        "Celery on operational complexity: Adds significant configuration overhead (broker, worker processes)",
+        "RQ on operational complexity: Simplest to deploy with minimal configuration"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "github.com",
+        "medium.com",
+        "testdriven.io"
+      ]
+    },
+    {
+      "id": "llm-serving",
+      "category": "ai",
+      "query": "vLLM vs TGI vs Ollama for serving open-source LLMs in production",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 40.0695781998802,
+      "node_seconds": {
+        "search_github": 0.72,
+        "decompose_query": 2.36,
+        "search_web": 2.45,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.11,
+        "synthesize_brief": 34.12
+      },
+      "tokens": {
+        "input": 4842,
+        "output": 7164,
+        "total": 12006
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "vLLM",
+      "groundedness": 0.8333333333333334,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Ollama on ecosystem integration: Focused on local convenience; limited ecosystem integration.",
+        "vLLM on operational simplicity: Requires more setup for production deployments.",
+        "vLLM weakness: Requires more deployment setup than Ollama"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "gigagpu.com",
+        "ibl.ai",
+        "medium.com",
+        "youtube.com"
+      ]
+    },
+    {
+      "id": "llm-observability",
+      "category": "mlops",
+      "query": "Recommend an observability stack for LLM applications",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.002163700060919,
+      "node_seconds": {
+        "search_github": 1.4,
+        "decompose_query": 2.33,
+        "search_web": 2.56,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.29,
+        "synthesize_brief": 6.81
+      },
+      "tokens": {
+        "input": 2553,
+        "output": 3367,
+        "total": 5920
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 3
+      },
+      "topic_covered": true,
+      "confidence": "medium",
+      "recommended": "Langfuse",
+      "groundedness": 0.5833333333333334,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Tsuga on cost: Managed service likely higher cost; no pricing details in sources",
+        "Langfuse on cost: Self\u2011hosted open\u2011source reduces upfront cost; operational cost depends on internal resources",
+        "LangSmith on cost: Managed SaaS; cost not detailed in sources"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "braintrust.dev",
+        "logz.io",
+        "posthog.com",
+        "tsuga.com"
+      ]
+    },
+    {
+      "id": "api-gateway",
+      "category": "infrastructure",
+      "query": "Kong vs Traefik vs NGINX as an API gateway for microservices",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 17.911628199974075,
+      "node_seconds": {
+        "search_github": 1.15,
+        "decompose_query": 2.34,
+        "search_web": 1.96,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 5.7,
+        "synthesize_brief": 7.89
+      },
+      "tokens": {
+        "input": 2678,
+        "output": 3752,
+        "total": 6430
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 13,
+        "coverage": 0.8666666666666667,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Kong",
+      "groundedness": 0.9375,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Recommendation (Kong): Kong provides the most comprehensive API management features, a mature plugin ecosystem, and supports both traditional and cloud\u2011native deployments, aligning with the need for full lifecycle control despite higher resource usage."
+      ],
+      "sources_count": 4,
+      "domains": [
+        "api7.ai",
+        "apisix.apache.org",
+        "devopsboys.com",
+        "futurepicker.com"
+      ]
+    },
+    {
+      "id": "python-web",
+      "category": "backend",
+      "query": "FastAPI vs Django vs Flask for a high-traffic REST API",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 12.686257499968633,
+      "node_seconds": {
+        "search_github": 0.59,
+        "decompose_query": 1.62,
+        "search_web": 1.94,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.37,
+        "synthesize_brief": 7.73
+      },
+      "tokens": {
+        "input": 2455,
+        "output": 3718,
+        "total": 6173
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "FastAPI",
+      "groundedness": 0.9166666666666666,
+      "claims_judged": 24,
+      "unsupported_examples": [],
+      "sources_count": 4,
+      "domains": [
+        "blog.jetbrains.com",
+        "cipherprojects.com",
+        "codecademy.com",
+        "geeksforgeeks.org"
+      ]
+    },
+    {
+      "id": "oltp-database",
+      "category": "databases",
+      "query": "PostgreSQL vs MySQL vs CockroachDB for a multi-region OLTP workload",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 11.6695854999125,
+      "node_seconds": {
+        "search_github": 0.79,
+        "decompose_query": 2.03,
+        "search_web": 1.95,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.34,
+        "synthesize_brief": 6.33
+      },
+      "tokens": {
+        "input": 2410,
+        "output": 2960,
+        "total": 5370
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 10,
+        "coverage": 0.6666666666666666,
+        "distinct_sources_cited": 2
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "CockroachDB",
+      "groundedness": 0.6875,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "PostgreSQL on consistency: Provides ACID transactions with typical isolation levels; not globally distributed.",
+        "PostgreSQL on SQL compatibility: Full PostgreSQL feature set.",
+        "PostgreSQL strength: Rich SQL feature set"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "devnexushub.com",
+        "index.dev",
+        "stackshare.io"
+      ]
+    },
+    {
+      "id": "event-streaming",
+      "category": "data",
+      "query": "Kafka vs Redpanda vs Pulsar for event streaming at moderate scale",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.929700599983335,
+      "node_seconds": {
+        "search_github": 0.69,
+        "decompose_query": 2.13,
+        "search_web": 2.35,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.49,
+        "synthesize_brief": 7.94
+      },
+      "tokens": {
+        "input": 2380,
+        "output": 4140,
+        "total": 6520
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Pulsar",
+      "groundedness": 0.8333333333333334,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Kafka on licensing: Apache 2.0 open\u2011source license with unrestricted community use.",
+        "Pulsar on licensing: Apache 2.0 open\u2011source license.",
+        "Recommendation (Pulsar): Pulsar\u2019s broker\u2011storage separation provides the strongest scalability and native multi\u2011tenant capabilities for moderate\u2011scale workloads, outweighing its higher operational complexity and smaller ecosystem."
+      ],
+      "sources_count": 4,
+      "domains": [
+        "automq.com",
+        "designgurus.substack.com",
+        "kai-waehner.de",
+        "youtube.com"
+      ]
+    },
+    {
+      "id": "pipeline-orchestration",
+      "category": "data",
+      "query": "Airflow vs Dagster vs Prefect for data pipeline orchestration",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.339868400013074,
+      "node_seconds": {
+        "search_github": 0.69,
+        "decompose_query": 2.03,
+        "search_web": 1.34,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.04,
+        "synthesize_brief": 8.9
+      },
+      "tokens": {
+        "input": 2440,
+        "output": 3882,
+        "total": 6322
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 14,
+        "coverage": 0.9333333333333333,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Managed Apache Airflow (e.g., Cloud Composer, Astronomer)",
+      "groundedness": 0.5416666666666666,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Apache Airflow on maturity: Mature and widely adopted in production environments.",
+        "Dagster on maturity: Growing; gaining traction but less mature than Airflow.",
+        "Prefect on maturity: Growing; newer than Airflow with increasing adoption."
+      ],
+      "sources_count": 4,
+      "domains": [
+        "dagster.io",
+        "dev.to",
+        "getorchestra.io"
+      ]
+    },
+    {
+      "id": "frontend-frameworks",
+      "category": "frontend",
+      "query": "React vs Vue vs Svelte for a small team building an analytics dashboard",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 12.780099999858066,
+      "node_seconds": {
+        "search_github": 1.22,
+        "decompose_query": 1.94,
+        "search_web": 2.65,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.48,
+        "synthesize_brief": 6.68
+      },
+      "tokens": {
+        "input": 2549,
+        "output": 3315,
+        "total": 5864
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "React",
+      "groundedness": 0.9583333333333334,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Svelte on development_speed: Simplicity aids rapid prototyping, but smaller talent pool may slow onboarding"
+      ],
+      "sources_count": 5,
+      "domains": [
+        "arc.dev",
+        "github.com",
+        "jurnal.itscience.org",
+        "strapi.io",
+        "svar.dev"
+      ]
+    },
+    {
+      "id": "edr-tools",
+      "category": "security",
+      "query": "Evaluate EDR tools for a 200-person company",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.251545900013298,
+      "node_seconds": {
+        "search_github": 0.9,
+        "decompose_query": 2.24,
+        "search_web": 2.45,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.34,
+        "synthesize_brief": 7.2
+      },
+      "tokens": {
+        "input": 2388,
+        "output": 3640,
+        "total": 6028
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 12,
+        "cited_items": 9,
+        "coverage": 0.75,
+        "distinct_sources_cited": 2
+      },
+      "topic_covered": true,
+      "confidence": "medium",
+      "recommended": "Microsoft Defender for Endpoint (Plan 2)",
+      "groundedness": 0.9,
+      "claims_judged": 20,
+      "unsupported_examples": [
+        "CrowdStrike Falcon strength: Automation and playbook support",
+        "Microsoft Defender for Endpoint (Plan 2) weakness: Limited publicly documented automation compared to dedicated EDR platforms"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "cynet.com",
+        "decryptiondigest.com",
+        "iru.com",
+        "spiceworks.com"
+      ]
+    },
+    {
+      "id": "infrastructure-as-code",
+      "category": "infrastructure",
+      "query": "Terraform vs Pulumi vs OpenTofu for infrastructure as code",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 16.58347099996172,
+      "node_seconds": {
+        "search_github": 0.8,
+        "decompose_query": 1.72,
+        "search_web": 2.04,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 4.17,
+        "synthesize_brief": 8.62
+      },
+      "tokens": {
+        "input": 2426,
+        "output": 4267,
+        "total": 6693
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "medium",
+      "recommended": "Pulumi (primary for new hybrid workloads, with Terraform/OpenTofu for existing HCL\u2011based projects)",
+      "groundedness": 0.7083333333333334,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Terraform on licensing & governance: Proprietary license; potential license risk noted by teams",
+        "Pulumi on ecosystem & community: Ecosystem centered on language SDKs and managed service; less traditional provider count",
+        "OpenTofu on ecosystem & community: High HCL compatibility; community\u2011governed but ecosystem smaller than Terraform's"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "encore.dev",
+        "envzero.com",
+        "khimananda.com",
+        "pulumi.com"
+      ]
+    },
+    {
+      "id": "rag-chunking",
+      "category": "ai",
+      "query": "Best approach to chunking and retrieval for RAG over technical PDFs",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 11.73314779996872,
+      "node_seconds": {
+        "search_github": 0.64,
+        "decompose_query": 1.88,
+        "search_web": 2.31,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.07,
+        "synthesize_brief": 6.44
+      },
+      "tokens": {
+        "input": 2348,
+        "output": 3401,
+        "total": 5749
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 3
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Hierarchical parent\u2011child chunking",
+      "groundedness": 0.6136363636363636,
+      "claims_judged": 22,
+      "unsupported_examples": [
+        "Fixed-size sliding window chunking on engineering complexity: Very low complexity, straightforward implementation",
+        "Hierarchical parent\u2011child chunking on scalability/cost: Moderate storage and compute cost due to dual indexes",
+        "Adaptive dynamic chunking on scalability/cost: Potentially higher compute cost for dynamic sizing"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "aiflowreview.com",
+        "medium.com",
+        "premai.io",
+        "weaviate.io"
+      ]
+    },
+    {
+      "id": "embedding-models",
+      "category": "ai",
+      "query": "Which embedding model should we use for multilingual semantic search?",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.719018100062385,
+      "node_seconds": {
+        "search_github": 0.9,
+        "decompose_query": 1.83,
+        "search_web": 2.05,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.88,
+        "synthesize_brief": 7.94
+      },
+      "tokens": {
+        "input": 2399,
+        "output": 3882,
+        "total": 6281
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 20,
+        "cited_items": 15,
+        "coverage": 0.75,
+        "distinct_sources_cited": 3
+      },
+      "topic_covered": true,
+      "confidence": "medium",
+      "recommended": "BGE\u2011M3",
+      "groundedness": 0.6875,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Google Gemini Embedding on latency/size: Latency and size not reported in sources",
+        "BGE\u2011M3 on latency/size: Latency and size not reported in sources",
+        "LaBSE on latency/size: Latency and size not reported in sources"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "aimultiple.com",
+        "emergentmind.com",
+        "tigerdata.com",
+        "typedef.ai"
+      ]
+    },
+    {
+      "id": "container-orchestration",
+      "category": "infrastructure",
+      "query": "Kubernetes vs Nomad vs ECS for a small team running 20 services",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.022077600006014,
+      "node_seconds": {
+        "search_github": 0.61,
+        "decompose_query": 1.57,
+        "search_web": 1.8,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.35,
+        "synthesize_brief": 8.28
+      },
+      "tokens": {
+        "input": 2502,
+        "output": 3299,
+        "total": 5801
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "medium",
+      "recommended": "Nomad",
+      "groundedness": 0.9583333333333334,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Recommendation (Nomad): Nomad offers the best balance of simplicity, multi\u2011cloud flexibility, and low operational overhead for a small team, while avoiding the high expertise burden of Kubernetes and the AWS lock\u2011in of ECS. Licensing risk is noted but can be managed with compliance checks."
+      ],
+      "sources_count": 4,
+      "domains": [
+        "ainformat.com",
+        "cycle.io",
+        "dokploy.com",
+        "encore.dev"
+      ]
+    },
+    {
+      "id": "ci-cd",
+      "category": "devops",
+      "query": "GitHub Actions vs GitLab CI vs Jenkins for CI/CD",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 12.908922099974006,
+      "node_seconds": {
+        "search_github": 1.12,
+        "decompose_query": 1.96,
+        "search_web": 1.91,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.58,
+        "synthesize_brief": 7.42
+      },
+      "tokens": {
+        "input": 2637,
+        "output": 3786,
+        "total": 6423
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "GitHub Actions",
+      "groundedness": 0.875,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "GitHub Actions weakness: Limited to GitHub ecosystem for native integration",
+        "Recommendation (GitHub Actions): GitHub Actions combines the highest market adoption, low operational overhead, and a large action marketplace, matching the organization\u2019s need for rapid, low\u2011friction CI/CD adoption. While its pipeline model is less expressive, the current workload does not require the advanced DAG features of GitLab CI, and the self\u2011hosting complexity of Jenkins is unnecessary."
+      ],
+      "sources_count": 5,
+      "domains": [
+        "algoroq.io",
+        "awsquality.com",
+        "github.com",
+        "ksolves.com",
+        "medium.com"
+      ]
+    },
+    {
+      "id": "caching",
+      "category": "backend",
+      "query": "Redis vs Memcached vs Dragonfly for application caching",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 16.261034699855372,
+      "node_seconds": {
+        "search_github": 0.68,
+        "decompose_query": 1.71,
+        "search_web": 1.4,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.5,
+        "synthesize_brief": 11.62
+      },
+      "tokens": {
+        "input": 2477,
+        "output": 3669,
+        "total": 6146
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 12,
+        "coverage": 0.8,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "medium",
+      "recommended": "Dragonfly",
+      "groundedness": 0.9166666666666666,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Redis on latency: Comparable latency to Dragonfly; both show similar latency ranges in benchmarks.",
+        "Dragonfly on latency: Comparable latency to Redis; higher read latency than Memcached but still low (\u22481\u202fms)."
+      ],
+      "sources_count": 4,
+      "domains": [
+        "dragonflydb.io",
+        "github.com",
+        "khimananda.com"
+      ]
+    },
+    {
+      "id": "search-engines",
+      "category": "databases",
+      "query": "Elasticsearch vs OpenSearch vs Typesense for product search",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 22.6316666000057,
+      "node_seconds": {
+        "search_github": 0.7,
+        "decompose_query": 6.14,
+        "search_web": 3.07,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.2,
+        "synthesize_brief": 12.2
+      },
+      "tokens": {
+        "input": 2450,
+        "output": 4373,
+        "total": 6823
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 12,
+        "cited_items": 12,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Elasticsearch",
+      "groundedness": 0.9583333333333334,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Elasticsearch on ecosystem/community: Mature ecosystem with extensive enterprise support"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "contracollective.com",
+        "meilisearch.com",
+        "typesense.org"
+      ]
+    },
+    {
+      "id": "identity-providers",
+      "category": "security",
+      "query": "Keycloak vs Auth0 vs Authentik for SSO and user management",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.815729199908674,
+      "node_seconds": {
+        "search_github": 0.59,
+        "decompose_query": 1.72,
+        "search_web": 2.57,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.38,
+        "synthesize_brief": 8.12
+      },
+      "tokens": {
+        "input": 2496,
+        "output": 3264,
+        "total": 5760
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Authentik",
+      "groundedness": 0.5625,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Authentik on maturity: Newer project with growing adoption; less mature than Keycloak (source 3)",
+        "Authentik on cost: Open\u2011source with lower infrastructure cost; community free, paid support optional (source 4)",
+        "Keycloak on licensing: Apache\u20112.0 open source; enterprise license adds usage restrictions (source 2)"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "cerbos.dev",
+        "danubedata.ro",
+        "meetrix.io",
+        "phasetwo.io"
+      ]
+    },
+    {
+      "id": "experiment-tracking",
+      "category": "mlops",
+      "query": "MLflow vs Weights & Biases vs DVC for experiment tracking",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 15.248138000024483,
+      "node_seconds": {
+        "search_github": 0.9,
+        "decompose_query": 2.03,
+        "search_web": 2.35,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 4.49,
+        "synthesize_brief": 6.36
+      },
+      "tokens": {
+        "input": 2535,
+        "output": 3334,
+        "total": 5869
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 15,
+        "cited_items": 15,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "MLflow",
+      "groundedness": 0.6041666666666666,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Weights & Biases on cost: Cloud\u2011based SaaS model; costs can increase with team size and usage.",
+        "DVC on cost: Open\u2011source tool; costs limited to storage and infrastructure for data versioning.",
+        "MLflow on licensing: Open\u2011source license (Apache 2.0) enabling free use and modification."
+      ],
+      "sources_count": 4,
+      "domains": [
+        "devopsschool.com",
+        "medium.com",
+        "resumelens.org",
+        "youtube.com"
+      ]
+    },
+    {
+      "id": "wasm-plugins",
+      "category": "niche",
+      "query": "Is WebAssembly a good fit for plugin systems in a Rust application?",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 10.868888899916783,
+      "node_seconds": {
+        "search_github": 0.81,
+        "decompose_query": 1.64,
+        "search_web": 2.16,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.39,
+        "synthesize_brief": 5.65
+      },
+      "tokens": {
+        "input": 2414,
+        "output": 2800,
+        "total": 5214
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 10,
+        "cited_items": 10,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "high",
+      "recommended": "Wasmtime (WebAssembly Components)",
+      "groundedness": 0.675,
+      "claims_judged": 20,
+      "unsupported_examples": [
+        "Native ABI Plugin System on Security: Lacks sandboxing; security depends on host trust",
+        "Native ABI Plugin System on Ecosystem & Maturity: Traditional approach is well\u2011known but lacks modern WASM tooling",
+        "Native ABI Plugin System strength: Direct native performance"
+      ],
+      "sources_count": 4,
+      "domains": [
+        "blog.redlinesoft.net",
+        "reintech.io",
+        "tartanllama.xyz",
+        "users.rust-lang.org"
+      ]
+    },
+    {
+      "id": "android-speech",
+      "category": "niche",
+      "query": "Options for on-device speech recognition on Android",
+      "ok": true,
+      "error_code": null,
+      "latency_seconds": 13.527788300067186,
+      "node_seconds": {
+        "search_github": 0.82,
+        "decompose_query": 1.74,
+        "search_web": 2.15,
+        "score_sources": 0.0,
+        "select_sources": 0.0,
+        "stream_summary": 1.3,
+        "synthesize_brief": 8.31
+      },
+      "tokens": {
+        "input": 2431,
+        "output": 4115,
+        "total": 6546
+      },
+      "sub_questions": 4,
+      "structure_issues": [],
+      "citation": {
+        "items": 20,
+        "cited_items": 20,
+        "coverage": 1.0,
+        "distinct_sources_cited": 4
+      },
+      "topic_covered": true,
+      "confidence": "medium",
+      "recommended": "Picovoice Cheetah Streaming STT",
+      "groundedness": 0.7291666666666666,
+      "claims_judged": 24,
+      "unsupported_examples": [
+        "Picovoice Cheetah Streaming STT on integration effort: No integration effort data provided in sources.",
+        "Picovoice Cheetah Streaming STT on licensing/cost: Licensing and cost not disclosed in sources.",
+        "Google ML Kit GenAI Speech Recognition on licensing/cost: Depends on Google services and can increase APK size."
+      ],
+      "sources_count": 4,
+      "domains": [
+        "developers.googleblog.com",
+        "ecipe.org",
+        "github.com",
+        "picovoice.ai"
+      ]
+    }
+  ]
+}

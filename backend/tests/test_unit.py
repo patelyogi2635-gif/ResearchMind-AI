@@ -1191,3 +1191,62 @@ def test_api_rejects_a_malformed_conversation_id(client):
         json={"query": "evaluate vector databases", "conversation_id": "bad id!"},
     )
     assert response.status_code == 422
+
+
+def plan_of(*questions: str):
+    from app.schemas.research import PlanOutput
+
+    return PlanOutput(sub_questions=list(questions))
+
+
+@pytest.mark.asyncio
+async def test_planner_uses_json_mode_and_returns_the_plan(monkeypatch):
+    llm = fake_llm([plan_of("q1 landscape?", "q2 details?", "q3 evidence?", "q4 risks?", "q5 extra?")])
+    monkeypatch.setattr(planner_controller, "get_llm", lambda **kwargs: llm)
+    runtime = await with_runtime()
+    try:
+        result = await planner_controller.decompose_query({"query": "evaluate vector databases"}, runtime_config(runtime))
+    finally:
+        await close_runtime(runtime)
+    assert result["sub_questions"] == ["q1 landscape?", "q2 details?", "q3 evidence?", "q4 risks?"]
+    assert llm.with_structured_output.call_args.kwargs["method"] == "json_mode"
+
+
+@pytest.mark.asyncio
+async def test_planner_retries_once_after_a_failed_call(monkeypatch):
+    llm = fake_llm([RuntimeError("Tool choice is required, but model did not call a tool"), plan_of("a question", "another question")])
+    monkeypatch.setattr(planner_controller, "get_llm", lambda **kwargs: llm)
+    runtime = await with_runtime()
+    try:
+        result = await planner_controller.decompose_query({"query": "evaluate vector databases"}, runtime_config(runtime))
+    finally:
+        await close_runtime(runtime)
+    assert result["sub_questions"] == ["a question", "another question"]
+
+
+@pytest.mark.asyncio
+async def test_planner_waits_out_a_rate_limit_before_retrying(monkeypatch):
+    llm = fake_llm([make_rate_limit_error(), plan_of("only question")])
+    sleep = AsyncMock()
+    monkeypatch.setattr(planner_controller, "get_llm", lambda **kwargs: llm)
+    monkeypatch.setattr(planner_controller.asyncio, "sleep", sleep)
+    runtime = await with_runtime()
+    try:
+        result = await planner_controller.decompose_query({"query": "evaluate vector databases"}, runtime_config(runtime))
+    finally:
+        await close_runtime(runtime)
+    assert result["sub_questions"] == ["only question"]
+    sleep.assert_awaited_once_with(1.5)
+
+
+@pytest.mark.asyncio
+async def test_planner_falls_back_to_the_raw_query_only_after_every_attempt_failed(monkeypatch):
+    llm = fake_llm(RuntimeError("always fails"))
+    monkeypatch.setattr(planner_controller, "get_llm", lambda **kwargs: llm)
+    runtime = await with_runtime()
+    try:
+        result = await planner_controller.decompose_query({"query": "evaluate vector databases"}, runtime_config(runtime))
+    finally:
+        await close_runtime(runtime)
+    assert result == {"sub_questions": ["evaluate vector databases"]}
+    assert llm.with_structured_output.return_value.ainvoke.await_count == planner_controller.MAX_PLANNER_ATTEMPTS

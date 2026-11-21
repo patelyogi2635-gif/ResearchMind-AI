@@ -1,9 +1,8 @@
 import json
 import math
+import re
 from typing import Any
 from urllib.parse import urlparse
-
-from pydantic import BaseModel, Field
 
 MAX_CLAIMS = 24
 JUDGED_VERDICTS = ("supported", "partial", "unsupported")
@@ -23,19 +22,18 @@ VERDICT_ALIASES = {
 }
 REGRESSION_TOLERANCE = 0.05
 LATENCY_REGRESSION_RATIO = 1.3
+VERDICT_LINE = re.compile(
+    r"^[\s*#>-]*(?:claim\s*)?(\d+)\s*\**\s*[:.)\-\u2013]\s*\**\s*(not supported|unsupported|partially supported|partial|supported)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
 HIGHER_IS_BETTER = (
     "success_rate",
+    "planner_ok_rate",
     "structure_ok_rate",
     "citation_coverage",
     "topic_coverage_rate",
     "groundedness",
 )
-
-
-class JudgeVerdicts(BaseModel):
-    verdicts: list[str] = Field(
-        description="One of supported, partial or unsupported for each claim, in order"
-    )
 
 
 def mean(values: list[float]) -> float | None:
@@ -173,8 +171,8 @@ def format_judge_prompt(claims: list[dict[str, Any]], sources_text: str) -> str:
     )
     return (
         f"Sources:\n{sources_text}\n\nClaims to check:\n{numbered}\n\n"
-        f'Respond with JSON: {{"verdicts": [...]}} containing exactly {len(claims)} entries, '
-        "each one of supported, partial or unsupported, in claim order."
+        f"Reply with exactly {len(claims)} lines, one per claim, written as '<number>: supported', "
+        "'<number>: partial' or '<number>: unsupported'. Output nothing else."
     )
 
 
@@ -191,6 +189,38 @@ def normalize_verdicts(raw: list[Any], count: int) -> list[str]:
     """
     verdicts = [VERDICT_ALIASES.get(str(item).strip().lower(), "unsupported") for item in raw[:count]]
     return verdicts + ["unjudged"] * (count - len(verdicts))
+
+
+def parse_verdicts(text: str, count: int) -> list[str]:
+    """Reads the judge's reply into one verdict per claim.
+
+    The expected format is one line per claim such as '3: partial'. A JSON object
+    with a "verdicts" list is accepted as a fallback. Claims the judge skipped are
+    'unjudged', so a partly usable reply still counts.
+
+    Args:
+        text: The judge's raw reply.
+        count: The number of claims that were sent.
+
+    Returns:
+        Exactly `count` verdicts.
+    """
+    found: dict[int, str] = {}
+    for number, verdict in VERDICT_LINE.findall(text):
+        index = int(number)
+        if 1 <= index <= count and index not in found:
+            found[index] = VERDICT_ALIASES.get(verdict.lower(), "unsupported")
+    if found:
+        return [found.get(index, "unjudged") for index in range(1, count + 1)]
+    block = re.search(r"\{.*\}", text, re.DOTALL)
+    if block:
+        try:
+            verdicts = json.loads(block.group(0)).get("verdicts", [])
+        except (json.JSONDecodeError, AttributeError):
+            verdicts = []
+        if isinstance(verdicts, list) and verdicts:
+            return normalize_verdicts(verdicts, count)
+    return ["unjudged"] * count
 
 
 def groundedness_score(verdicts: list[str]) -> float | None:
@@ -233,6 +263,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "succeeded": len(ok),
         "success_rate": len(ok) / len(results) if results else None,
         "structure_ok_rate": mean([1.0 if not r["structure_issues"] else 0.0 for r in ok]),
+        "planner_ok_rate": mean([1.0 if r["sub_questions"] >= 3 else 0.0 for r in ok]),
         "citation_coverage": mean([r["citation"]["coverage"] for r in ok]),
         "topic_coverage_rate": mean([1.0 if covered else 0.0 for covered in expected]),
         "groundedness": mean([r["groundedness"] for r in ok if r["groundedness"] is not None]),
@@ -288,6 +319,7 @@ def render_markdown(summary: dict[str, Any], meta: dict[str, Any]) -> str:
     rows = [
         ("Topics evaluated", f"{summary['succeeded']}/{summary['topics']} succeeded ({_fmt(summary['success_rate'])})"),
         ("Valid structure", _fmt(summary["structure_ok_rate"])),
+        ("Planner produced 3+ sub-questions", _fmt(summary["planner_ok_rate"])),
         ("Citation coverage", _fmt(summary["citation_coverage"])),
         ("Expected candidates mentioned", _fmt(summary["topic_coverage_rate"])),
         ("Groundedness (LLM judge)", _fmt(summary["groundedness"])),

@@ -11,6 +11,7 @@ from evals.metrics import (
     groundedness_score,
     mean,
     normalize_verdicts,
+    parse_verdicts,
     percentile,
     regressions,
     render_markdown,
@@ -44,6 +45,7 @@ def ok_result(latency: float, grounded: float | None, covered: bool | None = Tru
     return {
         "ok": True,
         "error_code": None,
+        "sub_questions": 4,
         "latency_seconds": latency,
         "node_seconds": {"search_web": latency / 2, "synthesize_brief": latency / 4},
         "tokens": {"input": 1000, "output": 500, "total": 1500},
@@ -114,7 +116,7 @@ def test_extract_claims_is_capped_for_judging_cost():
 def test_judge_prompt_lists_claims_with_their_citations():
     prompt = format_judge_prompt([{"id": 1, "text": "Qdrant is fast", "cited": [1, 2]}], "[1] Source")
     assert "1. Qdrant is fast (cites [1][2])" in prompt
-    assert "exactly 1 entries" in prompt
+    assert "exactly 1 lines" in prompt
 
 
 def test_verdicts_are_normalized_and_padded():
@@ -146,6 +148,7 @@ def test_summarize_aggregates_successes_failures_and_latency():
     assert summary["confidence"] == {"medium": 2}
     assert summary["node_seconds_mean"]["search_web"] == pytest.approx(10)
     assert summary["tokens_mean_total"] == 1500
+    assert summary["planner_ok_rate"] == 1.0
 
 
 def test_summarize_handles_a_run_where_everything_failed():
@@ -183,3 +186,27 @@ def test_golden_topics_are_well_formed():
         assert 10 <= len(topic["query"]) <= 500
         assert topic["category"]
         assert topic["expect_any"] and all(name == name.lower() for name in topic["expect_any"])
+
+
+def test_parse_verdicts_reads_one_line_per_claim():
+    reply = "1: supported\n2: Partial\n3. unsupported\n4 - not supported\n**5:** partially supported"
+    assert parse_verdicts(reply, 5) == ["supported", "partial", "unsupported", "unsupported", "partial"]
+
+
+def test_parse_verdicts_marks_skipped_claims_unjudged_and_ignores_out_of_range_numbers():
+    reply = "Here are my verdicts:\n1: supported\n3: unsupported\n9: supported"
+    assert parse_verdicts(reply, 4) == ["supported", "unjudged", "unsupported", "unjudged"]
+
+
+def test_parse_verdicts_accepts_a_json_reply_as_a_fallback():
+    assert parse_verdicts('{"verdicts": ["supported", "no"]}', 3) == ["supported", "unsupported", "unjudged"]
+
+
+def test_parse_verdicts_returns_unjudged_for_unusable_replies():
+    assert parse_verdicts("", 2) == ["unjudged", "unjudged"]
+    assert parse_verdicts("I cannot help with that.", 2) == ["unjudged", "unjudged"]
+    assert parse_verdicts("{not json}", 1) == ["unjudged"]
+
+
+def test_regressions_flag_a_planner_drop():
+    assert any("planner_ok_rate" in message for message in regressions({"planner_ok_rate": 0.5}, {"planner_ok_rate": 1.0}))
